@@ -1,14 +1,14 @@
-import React, { Component } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Home from './pages/Home';
-import Inbox from './pages/Inbox';
-import Notification from './pages/Notification';
-import AdminHome from './pages/admin/AdminHome';
-import PendingUser from './pages/admin/pages/PendingUser';
-import PendingItems from './pages/admin/pages/PendingItems';
-import ViewRentingHistory from './pages/admin/pages/ViewRentingHistory';
+import React, { Component } from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Home from "./pages/Home";
+import Inbox from "./pages/Inbox";
+import Notification from "./pages/Notification";
+import AdminHome from "./pages/admin/AdminHome";
+import PendingUser from "./pages/admin/pages/PendingUser";
+import PendingItems from "./pages/admin/pages/PendingItems";
+import ViewRentingHistory from "./pages/admin/pages/ViewRentingHistory";
 
 export default class App extends Component {
   render() {
