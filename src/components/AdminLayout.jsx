@@ -11,8 +11,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import AdminSidebarMenu from "./AdminSidebarMenu";
 import { cn } from "@/lib/utils";
+import { useUser } from "../hooks/useUser";
+import { useNavigate } from "react-router-dom";
 
 export default function AdminLayout({ children, className }) {
+  const { user, removeUser } = useUser();
+
+  const navigation = useNavigate();
+
+  const handleLogout = () => {
+    removeUser()
+    navigation('/')
+  }
+
   return (
     <div className={cn("flex h-screen w-full", className)}>
       {/* Desktop sidebar */}
@@ -69,12 +80,12 @@ export default function AdminLayout({ children, className }) {
                 <DropdownMenuContent align="end" className="w-40">
                   <DropdownMenuItem>Profile</DropdownMenuItem>
                   <DropdownMenuItem>Settings</DropdownMenuItem>
-                  <DropdownMenuItem className="text-red-600">Logout</DropdownMenuItem>
+                  <DropdownMenuItem className="text-red-600" onClick={handleLogout}>Logout</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </div>
-          
+
           {children}
         </main>
       </div>
