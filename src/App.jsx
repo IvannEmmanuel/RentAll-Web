@@ -1,4 +1,4 @@
-import React, { Component } from "react";
+import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -10,30 +10,84 @@ import PendingUser from "./pages/admin/pages/PendingUser";
 import PendingItems from "./pages/admin/pages/PendingItems";
 import ViewRentingHistory from "./pages/admin/pages/ViewRentingHistory";
 import PendingBookings from "./pages/admin/pages/PendingBookings";
+import { UserProvider } from "./hooks/UserProvider";
+import PrivateRoute from "./hooks/PrivateRoute";
 
-export default class App extends Component {
-    render() {
-        return (
+const App = () => {
+    return (
+        <UserProvider>
             <Router>
                 <Routes>
                     <Route path="/" element={<Login />} />
                     <Route path="/register" element={<Register />} />
-                    <Route path="/home" element={<Home />} />
-                    <Route path="/inbox" element={<Inbox />} />
-                    <Route path="/notifications" element={<Notification />} />
-                    <Route path="/adminhome" element={<AdminHome />} />
-                    <Route path="/pending-users" element={<PendingUser />} />
-                    <Route path="/pending-items" element={<PendingItems />} />
+                    <Route
+                        path="/home"
+                        element={
+                            <PrivateRoute allowedRoles={["user"]}>
+                                <Home />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/inbox"
+                        element={
+                            <PrivateRoute allowedRoles={["user"]}>
+                                <Inbox />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/notifications"
+                        element={
+                            <PrivateRoute allowedRoles={["user"]}>
+                                <Notification />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/adminhome"
+                        element={
+                            <PrivateRoute allowedRoles={["admin"]}>
+                                <AdminHome />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/pending-users"
+                        element={
+                            <PrivateRoute allowedRoles={["admin"]}>
+                                <PendingUser />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/pending-items"
+                        element={
+                            <PrivateRoute allowedRoles={["admin"]}>
+                                <PendingItems />
+                            </PrivateRoute>
+                        }
+                    />
                     <Route
                         path="/pending-bookings"
-                        element={<PendingBookings />}
+                        element={
+                            <PrivateRoute allowedRoles={["admin"]}>
+                                <PendingBookings />
+                            </PrivateRoute>
+                        }
                     />
                     <Route
                         path="/renting-history"
-                        element={<ViewRentingHistory />}
+                        element={
+                            <PrivateRoute allowedRoles={["admin"]}>
+                                <ViewRentingHistory />
+                            </PrivateRoute>
+                        }
                     />
                 </Routes>
             </Router>
-        );
-    }
-}
+        </UserProvider>
+    );
+};
+
+export default App;
