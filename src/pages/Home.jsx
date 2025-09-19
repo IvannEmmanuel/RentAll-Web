@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import BookItemModal from "../components/BookItemModal";
 
 function Home() {
-    const user = useUser();
+    const { user } = useUser();
     const [favorites, setFavorites] = useState([]);
     const [addOpen, setAddOpen] = useState(false);
     const [categories, setCategories] = useState([]); // {category_id, name}
@@ -178,9 +178,8 @@ function Home() {
             {/* Desktop category menu */}
             <div className="hidden md:flex flex-row gap-4 md:gap-10 mt-10 px-4 md:px-30">
                 <p
-                    className={`cursor-pointer px-2 py-1 md:px-0 md:py-0 ${
-                        selectedCategoryId === "" ? "font-bold underline" : ""
-                    }`}
+                    className={`cursor-pointer px-2 py-1 md:px-0 md:py-0 ${selectedCategoryId === "" ? "font-bold underline" : ""
+                        }`}
                     onClick={() => setSelectedCategoryId("")}
                 >
                     All
@@ -188,11 +187,10 @@ function Home() {
                 {categories.map((cat) => (
                     <p
                         key={cat.category_id}
-                        className={`cursor-pointer px-2 py-1 md:px-0 md:py-0 ${
-                            selectedCategoryId === String(cat.category_id)
+                        className={`cursor-pointer px-2 py-1 md:px-0 md:py-0 ${selectedCategoryId === String(cat.category_id)
                                 ? "font-bold underline"
                                 : ""
-                        }`}
+                            }`}
                         onClick={() =>
                             setSelectedCategoryId(String(cat.category_id))
                         }
