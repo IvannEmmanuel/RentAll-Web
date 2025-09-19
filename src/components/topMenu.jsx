@@ -7,9 +7,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function TopMenu({ activePage, favorites = [], searchTerm, setSearchTerm }) {
-    const user = useUser();
+    const { user, removeUser } = useUser();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const navigate = useNavigate();
+
+    const handleLogout = () => {
+        removeUser()
+        navigate('/')
+    }
 
     const handleInbox = () => {
         navigate('/inbox')
@@ -110,7 +115,7 @@ export default function TopMenu({ activePage, favorites = [], searchTerm, setSea
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem className="cursor-pointer">Profile</DropdownMenuItem>
                         <DropdownMenuItem className="cursor-pointer">Settings</DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer">Logout</DropdownMenuItem>
+                        <DropdownMenuItem className="cursor-pointer text-red-600" onClick={handleLogout}>Logout</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
