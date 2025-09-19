@@ -4,6 +4,7 @@ import { Lock, Mail, Phone, Loader2 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { useToastApi } from "../components/ui/toast";
+import { useAuth } from "../hooks/UserProvider";
 
 function Login() {
     const [email, setEmail] = useState("");
@@ -15,6 +16,7 @@ function Login() {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
     const toast = useToastApi();
+    const { saveUser } = useAuth();
 
     const handlePasswordLogin = async () => {
         if (!email || !password) {
@@ -63,8 +65,10 @@ function Login() {
                 id: authUser.id,
                 email: authUser.email,
                 ...profile,
+                session
             };
-            localStorage.setItem("loggedInUser", JSON.stringify(userInfo));
+            saveUser(userInfo);
+            console.log(userInfo)
 
             const greetingName =
                 profile?.first_name || authUser.email || "there";
@@ -152,13 +156,14 @@ function Login() {
                 toast.info("Your account is pending admin verification.");
                 return; // stop here, don't navigate
             }
-
+            
             const userInfo = {
                 id: userId,
                 email: userEmail,
                 ...profile,
             };
-            localStorage.setItem("loggedInUser", JSON.stringify(userInfo));
+            saveUser(userInfo);
+            console.log(userInfo)
 
             toast.success("Signed in successfully with email OTP");
             if (profile.role === "admin") {
