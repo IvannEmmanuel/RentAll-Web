@@ -11,6 +11,7 @@ import {
     getUnreadNotificationCount,
     markNotificationsAsRead,
 } from "../lib/notifications";
+import { useUserContext } from "./UserContext.jsx";
 
 const NotificationContext = createContext();
 
@@ -28,30 +29,13 @@ export const NotificationProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(true);
-    const [user, setUser] = useState(null);
+    const { user, loading: userLoading } = useUserContext();
 
-    // Get current user
-    useEffect(() => {
-        const getUser = async () => {
-            const {
-                data: { user },
-            } = await supabase.auth.getUser();
-            setUser(user);
-        };
-        getUser();
-
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((event, session) => {
-            setUser(session?.user || null);
-        });
-
-        return () => subscription.unsubscribe();
-    }, []);
+    // No need for a separate auth subscription; rely on UserContext
 
     // Load notifications for the current user
     const loadNotifications = useCallback(async () => {
-        if (!user) {
+        if (userLoading || !user) {
             setNotifications([]);
             setUnreadCount(0);
             setLoading(false);
@@ -60,6 +44,14 @@ export const NotificationProvider = ({ children }) => {
 
         setLoading(true);
         try {
+            if (
+                typeof navigator !== "undefined" &&
+                navigator.onLine === false
+            ) {
+                // Offline: keep current state and exit fast
+                setLoading(false);
+                return;
+            }
             const [notificationsResult, unreadResult] = await Promise.all([
                 getUserNotifications(user.id, { limit: 100 }),
                 getUnreadNotificationCount(user.id),
@@ -77,7 +69,7 @@ export const NotificationProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, [user]);
+    }, [user, userLoading]);
 
     // Load notifications when user changes
     useEffect(() => {
@@ -86,7 +78,10 @@ export const NotificationProvider = ({ children }) => {
 
     // Set up real-time subscription for notifications
     useEffect(() => {
-        if (!user) return;
+        if (userLoading || !user) return;
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+            return; // skip realtime when offline
+        }
 
         const subscription = supabase
             .channel("notifications")
@@ -150,12 +145,26 @@ export const NotificationProvider = ({ children }) => {
                     }
                 }
             )
-            .subscribe();
+            .subscribe((status) => {
+                console.log("notifications channel status:", status);
+            });
+
+        const watchdog = setTimeout(() => {
+            try {
+                subscription.unsubscribe();
+            } catch (_) {}
+        }, 7000);
 
         return () => {
-            subscription.unsubscribe();
+            try {
+                subscription.unsubscribe();
+            } catch (_) {}
+            try {
+                supabase.removeChannel(subscription);
+            } catch (_) {}
+            clearTimeout(watchdog);
         };
-    }, [user]);
+    }, [user, userLoading]);
 
     // Request browser notification permission
     useEffect(() => {

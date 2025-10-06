@@ -7,18 +7,20 @@ import {
 } from "react";
 import { supabase } from "../../supabaseClient";
 import { useUser } from "../hooks/useUser";
+import { useUserLoading } from "../hooks/useUser";
 
 const FavoritesContext = createContext();
 
 export function FavoritesProvider({ children }) {
     const user = useUser();
+    const userLoading = useUserLoading();
     const [favorites, setFavorites] = useState([]);
     const [favoritesCount, setFavoritesCount] = useState(0);
     const [loading, setLoading] = useState(false);
 
     // Fetch favorites from database
     const fetchFavorites = useCallback(async () => {
-        if (!user?.id) {
+        if (userLoading || !user?.id) {
             setFavorites([]);
             setFavoritesCount(0);
             return;
@@ -154,12 +156,16 @@ export function FavoritesProvider({ children }) {
 
     // Load favorites on user change
     useEffect(() => {
-        fetchFavorites();
-    }, [fetchFavorites]);
+        if (!userLoading) fetchFavorites();
+    }, [fetchFavorites, userLoading]);
 
     // Real-time subscription for favorites changes (as backup to optimistic updates)
     useEffect(() => {
-        if (!user?.id) return;
+        if (userLoading || !user?.id) return;
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+            // Don't attempt realtime when offline
+            return;
+        }
 
         console.log("Setting up favorites subscription for user:", user.id);
 
@@ -184,11 +190,26 @@ export function FavoritesProvider({ children }) {
                     }, 100);
                 }
             )
-            .subscribe();
+            .subscribe((status) => {
+                console.log("favorites channel status:", status);
+            });
+
+        // Watchdog: if not subscribed within 7s, remove channel to avoid hanging sockets
+        const watchdog = setTimeout(() => {
+            try {
+                supabase.removeChannel(favoritesChannel);
+            } catch (_) {}
+        }, 7000);
 
         return () => {
             console.log("Cleaning up favorites subscription");
-            supabase.removeChannel(favoritesChannel);
+            try {
+                favoritesChannel.unsubscribe?.();
+            } catch (_) {}
+            try {
+                supabase.removeChannel(favoritesChannel);
+            } catch (_) {}
+            clearTimeout(watchdog);
         };
     }, [user?.id, fetchFavorites]);
 

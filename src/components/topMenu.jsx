@@ -91,7 +91,7 @@ export default function TopMenu({ activePage, searchTerm, setSearchTerm }) {
     }, [searchTerm]);
 
     return (
-        <div className="bg-[#FFFBF2] shadow-md px-4 py-3 md:px-6 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-0">
+        <div className="bg-[#FFFBF2] shadow-md px-4 py-3 md:px-6 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-0 relative">
             {/* Left: Logo + Links */}
             <div className="flex items-center justify-between md:justify-start gap-3 md:gap-6 w-full md:w-auto">
                 <h1 className="text-xl font-bold cursor-pointer">RentAll</h1>
@@ -165,60 +165,90 @@ export default function TopMenu({ activePage, searchTerm, setSearchTerm }) {
 
             {/* Mobile links */}
             {mobileMenuOpen && (
-                <div className="flex flex-row gap-2 md:hidden mt-2">
-                    <Button
-                        variant="link"
-                        className={`${linkClass("home")} cursor-pointer`}
-                        onClick={handleHome}
-                    >
-                        Home
-                    </Button>
-                    <Button
-                        variant="link"
-                        className={`${linkClass("my-bookings")} cursor-pointer`}
-                        onClick={() => navigate("/my-bookings")}
-                    >
-                        My Bookings
-                    </Button>
-                    <Button
-                        variant="link"
-                        className={`${linkClass("my-ratings")} cursor-pointer`}
-                        onClick={() => navigate("/my-ratings")}
-                    >
-                        Ratings
-                    </Button>
-                    <Button
-                        variant="link"
-                        className={`${linkClass("requests")} cursor-pointer`}
-                        onClick={() => navigate("/booking-requests")}
-                    >
-                        Requests
-                    </Button>
-                    <Button
-                        variant="link"
-                        className={`${linkClass("inbox")} cursor-pointer`}
-                        onClick={handleInbox}
-                    >
-                        Inbox
-                    </Button>
-                    <Button
-                        variant="link"
-                        className={`${linkClass(
-                            "notifications"
-                        )} cursor-pointer relative`}
-                        onClick={handleNotification}
-                    >
-                        <Bell className="h-4 w-4 mr-2" />
-                        Notifications
-                        {unreadCount > 0 && (
-                            <Badge
-                                variant="destructive"
-                                className="absolute -top-1 -right-1 text-xs min-w-[1.25rem] h-5 px-1"
-                            >
-                                {unreadCount > 99 ? "99+" : unreadCount}
-                            </Badge>
-                        )}
-                    </Button>
+                <div className="md:hidden mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-2 absolute left-4 right-4 top-full z-50">
+                    <div className="flex flex-col gap-1">
+                        <Button
+                            variant="ghost"
+                            className={`${linkClass(
+                                "home"
+                            )} cursor-pointer justify-start w-full`}
+                            onClick={() => {
+                                handleHome();
+                                setMobileMenuOpen(false);
+                            }}
+                        >
+                            Home
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            className={`${linkClass(
+                                "my-bookings"
+                            )} cursor-pointer justify-start w-full`}
+                            onClick={() => {
+                                navigate("/my-bookings");
+                                setMobileMenuOpen(false);
+                            }}
+                        >
+                            My Bookings
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            className={`${linkClass(
+                                "my-ratings"
+                            )} cursor-pointer justify-start w-full`}
+                            onClick={() => {
+                                navigate("/my-ratings");
+                                setMobileMenuOpen(false);
+                            }}
+                        >
+                            Ratings
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            className={`${linkClass(
+                                "requests"
+                            )} cursor-pointer justify-start w-full`}
+                            onClick={() => {
+                                navigate("/booking-requests");
+                                setMobileMenuOpen(false);
+                            }}
+                        >
+                            Requests
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            className={`${linkClass(
+                                "inbox"
+                            )} cursor-pointer justify-start w-full`}
+                            onClick={() => {
+                                handleInbox();
+                                setMobileMenuOpen(false);
+                            }}
+                        >
+                            Inbox
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            className={`${linkClass(
+                                "notifications"
+                            )} cursor-pointer justify-start w-full relative`}
+                            onClick={() => {
+                                handleNotification();
+                                setMobileMenuOpen(false);
+                            }}
+                        >
+                            <Bell className="h-4 w-4 mr-2" />
+                            Notifications
+                            {unreadCount > 0 && (
+                                <Badge
+                                    variant="destructive"
+                                    className="ml-auto text-xs min-w-[1.25rem] h-5 px-1"
+                                >
+                                    {unreadCount > 99 ? "99+" : unreadCount}
+                                </Badge>
+                            )}
+                        </Button>
+                    </div>
                 </div>
             )}
 
@@ -379,9 +409,6 @@ export default function TopMenu({ activePage, searchTerm, setSearchTerm }) {
                             onClick={() => navigate("/profile")}
                         >
                             Profile
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer">
-                            Settings
                         </DropdownMenuItem>
                         <DropdownMenuItem
                             className="cursor-pointer"

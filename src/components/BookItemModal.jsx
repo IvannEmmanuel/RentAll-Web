@@ -64,7 +64,7 @@ export default function BookItemModal({
     useEffect(() => {
         if (!open || !item?.item_id) return;
         if (item?.quantity != null) {
-            setQuantity(Number(item.quantity) || 1);
+            setQuantity(Number(item.quantity) || 0);
             return;
         }
         (async () => {
@@ -73,7 +73,7 @@ export default function BookItemModal({
                 .select("quantity")
                 .eq("item_id", item.item_id)
                 .single();
-            setQuantity(Number(data?.quantity) || 1);
+            setQuantity(Number(data?.quantity) || 0);
         })();
     }, [open, item?.item_id, item?.quantity]);
 
@@ -222,7 +222,7 @@ export default function BookItemModal({
 
                 const sum = (rows) =>
                     (rows || []).reduce(
-                        (acc, r) => acc + (Number(r.quantity) || 1),
+                        (acc, r) => acc + (Number(r.quantity) || 0),
                         0
                     );
                 const consumeSum = sum(consumeRows);
@@ -397,7 +397,7 @@ export default function BookItemModal({
                 throw error;
             }
 
-            // Trigger notification to owner
+            // Trigger notifications to both owner and renter
             try {
                 const renterName = insertedBooking.renter
                     ? `${insertedBooking.renter.first_name || ""} ${
@@ -405,17 +405,25 @@ export default function BookItemModal({
                       }`.trim()
                     : "Unknown User";
 
+                const ownerName = owner
+                    ? `${owner.first_name || ""} ${
+                          owner.last_name || ""
+                      }`.trim()
+                    : "the owner";
+
                 await handleBookingCreated(
                     {
                         ...insertedBooking,
                         owner_id: insertedBooking.items.user_id,
+                        renter_id: insertedBooking.renter_id,
                     },
                     insertedBooking.items.title,
-                    renterName
+                    renterName,
+                    ownerName
                 );
             } catch (notificationError) {
                 console.error(
-                    "Failed to send booking notification:",
+                    "Failed to send booking notifications:",
                     notificationError
                 );
                 // Don't fail the booking if notification fails

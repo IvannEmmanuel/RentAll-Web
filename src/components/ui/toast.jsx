@@ -10,37 +10,40 @@ const ToastContext = createContext({
 
 export function ToastProvider({ children }) {
     const success = useCallback((message, opts = {}) => {
+        const { duration, sticky, ...rest } = opts;
         Swal.fire({
             icon: "success",
-            title: opts.title || "Success",
+            title: rest.title || "Success",
             text: message,
-            timer: opts.duration ?? 2500,
-            showConfirmButton: false,
-            timerProgressBar: true,
-            ...opts,
+            timer: sticky ? undefined : duration ?? 2500,
+            showConfirmButton: !!sticky ? true : false,
+            timerProgressBar: !sticky,
+            ...rest,
         });
     }, []);
 
     const error = useCallback((message, opts = {}) => {
+        const { duration, sticky, ...rest } = opts;
         Swal.fire({
             icon: "error",
-            title: opts.title || "Error",
+            title: rest.title || "Error",
             text: message,
-            timer: opts.sticky ? undefined : opts.duration ?? 3000,
-            showConfirmButton: !opts.sticky,
-            ...opts,
+            timer: sticky ? undefined : duration ?? 3000,
+            showConfirmButton: !!sticky,
+            ...rest,
         });
     }, []);
 
     const info = useCallback((message, opts = {}) => {
+        const { duration, sticky, ...rest } = opts;
         Swal.fire({
             icon: "info",
-            title: opts.title || "Info",
+            title: rest.title || "Info",
             text: message,
-            timer: opts.duration ?? 2500,
-            showConfirmButton: false,
-            timerProgressBar: true,
-            ...opts,
+            timer: sticky ? undefined : duration ?? 2500,
+            showConfirmButton: !!sticky ? true : false,
+            timerProgressBar: !sticky,
+            ...rest,
         });
     }, []);
 

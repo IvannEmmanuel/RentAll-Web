@@ -55,7 +55,7 @@ export const NOTIFICATION_TEMPLATES = {
 
     RENTAL_STARTED: (itemTitle, renterName) => ({
         title: "Rental Started",
-        message: `${renterName} confirmed pickup of "${itemTitle}". Rental is now active.`,
+        message: `${renterName} confirmed receipt of "${itemTitle}". Rental is now active.`,
         type: NOTIFICATION_TYPES.RENTAL,
     }),
 
@@ -146,6 +146,12 @@ export const NOTIFICATION_TEMPLATES = {
         type: NOTIFICATION_TYPES.REMINDER,
     }),
 
+    BOOKING_REQUEST_SUBMITTED: (itemTitle, ownerName) => ({
+        title: "Booking Request Submitted",
+        message: `Your booking request for "${itemTitle}" has been sent to ${ownerName}. You'll be notified once they respond.`,
+        type: NOTIFICATION_TYPES.BOOKING,
+    }),
+
     BOOKING_AWAITING_OWNER_CONFIRMATION: (itemTitle, renterName) => ({
         title: "Waiting for Owner Confirmation",
         message: `${renterName} has returned "${itemTitle}". Please confirm the return to complete the rental.`,
@@ -179,6 +185,23 @@ export const NOTIFICATION_TEMPLATES = {
     }),
 
     RETURN_BOTH_PARTIES_NOTIFIED: (itemTitle, isAccommodation = false) => ({
+        title: isAccommodation ? "Stay Completed" : "Rental Completed",
+        message: isAccommodation
+            ? `Your stay at "${itemTitle}" has been completed successfully. Thank you for choosing our service!`
+            : `Your rental of "${itemTitle}" has been completed successfully. Thank you for using our service!`,
+        type: NOTIFICATION_TYPES.RETURN,
+    }),
+
+    // Separate completion notifications for better routing
+    RENTAL_COMPLETED_OWNER: (itemTitle, isAccommodation = false) => ({
+        title: isAccommodation ? "Stay Completed" : "Rental Completed",
+        message: isAccommodation
+            ? `The stay for "${itemTitle}" has been completed successfully. Thank you for hosting!`
+            : `The rental for "${itemTitle}" has been completed successfully. Thank you for sharing your item!`,
+        type: NOTIFICATION_TYPES.RETURN,
+    }),
+
+    RENTAL_COMPLETED_RENTER: (itemTitle, isAccommodation = false) => ({
         title: isAccommodation ? "Stay Completed" : "Rental Completed",
         message: isAccommodation
             ? `Your stay at "${itemTitle}" has been completed successfully. Thank you for choosing our service!`
@@ -463,8 +486,8 @@ export function getNotificationNavigationPath(
             if (
                 message &&
                 (message.includes("confirmed pickup of") ||
-                    message.includes("Rental is now active") ||
-                    message.includes("has been completed successfully"))
+                    message.includes("confirmed receipt of") ||
+                    message.includes("Rental is now active"))
             ) {
                 return "/booking-requests";
             }
@@ -474,11 +497,22 @@ export function getNotificationNavigationPath(
                 message &&
                 (message.includes("verified your deposit for") ||
                     message.includes("Your rental is confirmed") ||
-                    message.includes("confirmed return of") ||
                     message.includes("is bringing") ||
-                    message.includes("Rental completed successfully"))
+                    message.includes("Your rental of") || // Renter completion message
+                    message.includes("Your stay at")) // Accommodation completion
             ) {
                 return "/my-bookings";
+            }
+
+            // Owner completion notifications → /booking-requests
+            if (
+                message &&
+                (message.includes("confirmed return of") ||
+                    message.includes("Rental completed successfully") ||
+                    message.includes("Thank you for sharing your item") ||
+                    message.includes("Thank you for hosting"))
+            ) {
+                return "/booking-requests";
             }
 
             // Default for deposit/rental/return → /my-bookings (safer for renters)
@@ -520,6 +554,26 @@ export const BookingNotifications = {
         );
         return await createNotification({
             userId: ownerId,
+            ...template,
+            rentalId,
+            itemId,
+        });
+    },
+
+    // When renter submits booking request - notify them it's pending
+    async notifyRenterOfBookingSubmission(
+        renterId,
+        rentalId,
+        itemId,
+        itemTitle,
+        ownerName
+    ) {
+        const template = NOTIFICATION_TEMPLATES.BOOKING_REQUEST_SUBMITTED(
+            itemTitle,
+            ownerName
+        );
+        return await createNotification({
+            userId: renterId,
             ...template,
             rentalId,
             itemId,
@@ -847,22 +901,26 @@ export const ProcessNotifications = {
         itemTitle,
         isAccommodation = false
     ) {
-        const template = NOTIFICATION_TEMPLATES.RETURN_BOTH_PARTIES_NOTIFIED(
+        const renterTemplate = NOTIFICATION_TEMPLATES.RENTAL_COMPLETED_RENTER(
+            itemTitle,
+            isAccommodation
+        );
+        const ownerTemplate = NOTIFICATION_TEMPLATES.RENTAL_COMPLETED_OWNER(
             itemTitle,
             isAccommodation
         );
 
-        // Send to both renter and owner
+        // Send different notifications to renter and owner
         const results = await Promise.allSettled([
             createNotification({
                 userId: renterUserId,
-                ...template,
+                ...renterTemplate,
                 rentalId,
                 itemId,
             }),
             createNotification({
                 userId: ownerUserId,
-                ...template,
+                ...ownerTemplate,
                 rentalId,
                 itemId,
             }),

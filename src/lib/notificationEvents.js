@@ -13,8 +13,14 @@ import {
  */
 
 // When a booking is created (status: pending)
-export const handleBookingCreated = async (booking, itemTitle, renterName) => {
+export const handleBookingCreated = async (
+    booking,
+    itemTitle,
+    renterName,
+    ownerName
+) => {
     try {
+        // Notify owner of new booking request
         await BookingNotifications.notifyOwnerOfNewBooking(
             booking.owner_id,
             booking.rental_id,
@@ -22,8 +28,19 @@ export const handleBookingCreated = async (booking, itemTitle, renterName) => {
             itemTitle,
             renterName
         );
+
+        // Notify renter that their request was submitted
+        if (ownerName) {
+            await BookingNotifications.notifyRenterOfBookingSubmission(
+                booking.renter_id,
+                booking.rental_id,
+                booking.item_id,
+                itemTitle,
+                ownerName
+            );
+        }
     } catch (error) {
-        console.error("Failed to send booking created notification:", error);
+        console.error("Failed to send booking created notifications:", error);
     }
 };
 

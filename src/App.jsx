@@ -54,6 +54,11 @@ export default function App() {
     // Avoid prompting for Notifications automatically on load.
     // If needed, call requestNotificationsAndToken() from a user action.
 
+    const { loading } = useUserContext();
+    if (loading) {
+        return <Loading />;
+    }
+
     return (
         <NotificationProvider>
             <FavoritesProvider>

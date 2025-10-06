@@ -1733,13 +1733,65 @@ function MarkReceived({ rental, onChanged }) {
     const doMark = async () => {
         try {
             setLoading(true);
+
+            // First get the full booking details for notifications
+            const { data: bookingDetails, error: fetchError } = await supabase
+                .from("rental_transactions")
+                .select(
+                    `
+                    *,
+                    items!inner(title, user_id),
+                    renter:users!rental_transactions_renter_id_fkey(first_name, last_name)
+                `
+                )
+                .eq("rental_id", rental.rental_id)
+                .single();
+
+            if (fetchError) throw fetchError;
+
             const { error } = await supabase
                 .from("rental_transactions")
                 .update({ status: "ongoing" })
                 .eq("rental_id", rental.rental_id)
                 .eq("status", "on_the_way");
             if (error) throw error;
+
             toast.success("Marked as received. Enjoy your rental!");
+
+            // Trigger notification to owner about delivery confirmation
+            try {
+                console.log(
+                    "Booking details for notification:",
+                    bookingDetails
+                );
+
+                const renterName = bookingDetails.renter
+                    ? `${bookingDetails.renter.first_name || ""} ${
+                          bookingDetails.renter.last_name || ""
+                      }`.trim()
+                    : "The renter";
+
+                console.log("Extracted renter name:", renterName);
+
+                await handleBookingStatusChange(
+                    "on_the_way",
+                    "ongoing",
+                    {
+                        ...bookingDetails,
+                        status: "ongoing",
+                        owner_id: bookingDetails.items.user_id,
+                    },
+                    bookingDetails.items,
+                    renterName
+                );
+            } catch (notificationError) {
+                console.error(
+                    "Failed to send delivery notification:",
+                    notificationError
+                );
+                // Don't fail the delivery confirmation if notification fails
+            }
+
             onChanged && onChanged();
         } catch (e) {
             toast.error(e.message || "Could not update");
