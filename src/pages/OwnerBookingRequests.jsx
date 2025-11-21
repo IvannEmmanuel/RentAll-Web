@@ -151,81 +151,108 @@ export default function OwnerBookingRequests({
             const { data, error } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,quantity,proof_of_deposit_url,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,proof_of_deposit_url,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
                 .eq("items.user_id", user.id)
                 .eq("status", "pending")
                 .neq("renter_id", user.id)
-                .order("created_at", { ascending: true })
-                .order("start_date", { ascending: true });
+                .order("created_at", { ascending: false });
             if (error) throw error;
             const filtered = (data || []).filter(
                 (r) => r.renter_id && r.renter_id !== user.id
             );
-            setRows(filtered);
+            const sortedPending = filtered.sort(
+                (a, b) =>
+                    new Date(b.created_at || 0) - new Date(a.created_at || 0)
+            );
+            setRows(sortedPending);
 
             const { data: ret, error: e2 } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,quantity,renter_return_marked_at,owner_confirmed_at,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,renter_return_marked_at,owner_confirmed_at,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
                 .eq("items.user_id", user.id)
                 .eq("status", "awaiting_owner_confirmation")
                 .neq("renter_id", user.id)
-                .order("renter_return_marked_at", { ascending: true });
+                .order("created_at", { ascending: false });
             if (e2) throw e2;
-            setAwaiting(ret || []);
+            setAwaiting(
+                (ret || []).sort(
+                    (a, b) =>
+                        new Date(b.created_at || 0) -
+                        new Date(a.created_at || 0)
+                )
+            );
 
             const { data: exp, error: e3 } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,quantity,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
                 .eq("items.user_id", user.id)
                 .eq("status", "expired")
                 .neq("renter_id", user.id)
-                .order("start_date", { ascending: false });
+                .order("created_at", { ascending: false });
             if (e3) throw e3;
-            setExpired(exp || []);
+            setExpired(
+                (exp || []).sort(
+                    (a, b) =>
+                        new Date(b.created_at || 0) -
+                        new Date(a.created_at || 0)
+                )
+            );
 
             const { data: ong, error: e4 } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,quantity,proof_of_deposit_url,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,proof_of_deposit_url,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
                 .eq("items.user_id", user.id)
                 .eq("status", "ongoing")
                 .neq("renter_id", user.id)
-                .order("start_date", { ascending: true });
+                .order("created_at", { ascending: false });
             if (e4) throw e4;
-            setOngoing(ong || []);
+            setOngoing(
+                (ong || []).sort(
+                    (a, b) =>
+                        new Date(b.created_at || 0) -
+                        new Date(a.created_at || 0)
+                )
+            );
 
             const { data: conf, error: e4b } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,quantity,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
                 .eq("items.user_id", user.id)
                 .eq("status", "confirmed")
                 .neq("renter_id", user.id)
-                .order("start_date", { ascending: true });
+                .order("created_at", { ascending: false });
             if (e4b) throw e4b;
-            setAwaitingDepositOwner(conf || []);
+            setAwaitingDepositOwner(
+                (conf || []).sort(
+                    (a, b) =>
+                        new Date(b.created_at || 0) -
+                        new Date(a.created_at || 0)
+                )
+            );
 
             const { data: canx, error: e5 } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,quantity,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
@@ -234,50 +261,73 @@ export default function OwnerBookingRequests({
                 .neq("renter_id", user.id)
                 .order("created_at", { ascending: false });
             if (e5) throw e5;
-            setCancelled(canx || []);
+            setCancelled(
+                (canx || []).sort(
+                    (a, b) =>
+                        new Date(b.created_at || 0) -
+                        new Date(a.created_at || 0)
+                )
+            );
 
             const { data: dep, error: e6 } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,quantity,proof_of_deposit_url,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,proof_of_deposit_url,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
                 .eq("items.user_id", user.id)
                 .eq("status", "deposit_submitted")
                 .neq("renter_id", user.id)
-                .order("start_date", { ascending: true });
+                .order("created_at", { ascending: false });
             if (e6) throw e6;
-            setDeposits(dep || []);
+            setDeposits(
+                (dep || []).sort(
+                    (a, b) =>
+                        new Date(b.created_at || 0) -
+                        new Date(a.created_at || 0)
+                )
+            );
 
             const { data: onw, error: e7 } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,quantity,proof_of_deposit_url,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,proof_of_deposit_url,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
                 .eq("items.user_id", user.id)
                 .eq("status", "on_the_way")
                 .neq("renter_id", user.id)
-                .order("start_date", { ascending: true });
+                .order("created_at", { ascending: false });
             if (e7) throw e7;
-            setEnRoute(onw || []);
+            setEnRoute(
+                (onw || []).sort(
+                    (a, b) =>
+                        new Date(b.created_at || 0) -
+                        new Date(a.created_at || 0)
+                )
+            );
 
             const { data: done, error: e8 } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,quantity,owner_confirmed_at,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,owner_confirmed_at,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
                 .eq("items.user_id", user.id)
                 .eq("status", "completed")
                 .neq("renter_id", user.id)
-                .order("owner_confirmed_at", { ascending: false })
-                .order("end_date", { ascending: false });
+                .order("created_at", { ascending: false });
             if (e8) throw e8;
-            setCompleted(done || []);
+            setCompleted(
+                (done || []).sort(
+                    (a, b) =>
+                        new Date(b.created_at || 0) -
+                        new Date(a.created_at || 0)
+                )
+            );
         } catch (e) {
             console.error("Load owner requests failed:", e.message);
         } finally {
@@ -867,15 +917,7 @@ export default function OwnerBookingRequests({
                                     Booking Progress Guide
                                 </span>
                             </div>
-                            <ProgressLegend
-                                labelsOverride={{
-                                    pending: "Prepare",
-                                    confirmed: "Confirmed",
-                                    deposit_submitted: "Verify",
-                                    on_the_way: "Hand Over",
-                                    ongoing: "In Use",
-                                }}
-                            />
+                            <ProgressLegend/>
                         </div>
                     </CardContent>
                 </Card>

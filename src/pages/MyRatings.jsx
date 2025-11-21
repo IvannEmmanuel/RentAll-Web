@@ -27,16 +27,17 @@ export default function MyRatings() {
                     supabase
                         .from("rental_transactions")
                         .select(
-                            `item_id,rental_id,
-                         items (
-                           title,
-                           user_id,
-                           main_image_url,
-                           owner:users ( first_name, last_name )
-                         )`
+                            `item_id,rental_id,created_at,
+                                                 items (
+                                                     title,
+                                                     user_id,
+                                                     main_image_url,
+                                                     owner:users ( first_name, last_name )
+                                                 )`
                         )
                         .eq("renter_id", user.id)
-                        .eq("status", "completed"),
+                        .eq("status", "completed")
+                        .order("created_at", { ascending: false }),
                     supabase
                         .from("reviews")
                         .select(
@@ -46,7 +47,11 @@ export default function MyRatings() {
                 ]);
             if (e1) throw e1;
             if (e2) throw e2;
-            setCompleted(rentals || []);
+            const sortedRentals = (rentals || []).sort(
+                (a, b) =>
+                    new Date(b.created_at || 0) - new Date(a.created_at || 0)
+            );
+            setCompleted(sortedRentals);
             const map = {};
             (reviews || []).forEach((r) => {
                 map[r.rental_id] = r;
