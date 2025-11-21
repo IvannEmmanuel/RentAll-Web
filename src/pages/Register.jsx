@@ -176,40 +176,90 @@ function Register() {
 
     const handleNext = async () => {
         if (step === 1) {
+            // First Name
+            if (!formData.firstName.trim()) {
+                toast.error("Please enter your first name.");
+                return;
+            }
+
+            // Last Name
+            if (!formData.lastName.trim()) {
+                toast.error("Please enter your last name.");
+                return;
+            }
+
+            // Date of Birth + Age Validation
+            if (!formData.dob) {
+                toast.error("Please select your date of birth.");
+                return;
+            }
+
+            const today = new Date();
+            const birth = new Date(formData.dob);
+            let age = today.getFullYear() - birth.getFullYear();
+            const monthDiff = today.getMonth() - birth.getMonth();
+
+            // Correct age calculation
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                age--;
+            }
+
+            if (age < 18) {
+                toast.error("You must be at least 18 years old to register.");
+                return;
+            }
+
+            // Phone number must be exactly 11 digits (09123456789)
+            if (!formData.phone || formData.phone.length !== 11) {
+                toast.error("Phone number must be 11 digits.");
+                return;
+            }
+
+            // ID Image
+            if (!formData.idImage) {
+                toast.error("Please upload your ID image.");
+                return;
+            }
+
+            // Email
             if (!formData.email) {
-                toast.error("Please enter your email first.");
+                toast.error("Please enter your email.");
                 return;
             }
+
+            // Password
             if (!formData.password || !formData.confirmPassword) {
-                toast.error("Please enter and confirm your password.");
+                toast.error("Please enter your password and confirm it.");
                 return;
             }
+
             if (formData.password !== formData.confirmPassword) {
                 toast.error("Passwords do not match.");
                 return;
             }
+
             if (formData.password.length < 8) {
                 toast.error("Password must be at least 8 characters.");
                 return;
             }
+
+            // Continue OTP sending process
             try {
                 setLoading(true);
                 const { error } = await supabase.auth.signInWithOtp({
                     email: formData.email,
-                    options: {
-                        shouldCreateUser: true,
-                    },
+                    options: { shouldCreateUser: true },
                 });
+
                 if (error) throw error;
-                console.log("OTP sent to", formData.email);
                 toast.success("OTP sent to " + formData.email);
                 setStep(2);
             } catch (e) {
-                console.error(e.message);
                 toast.error("Failed to send OTP: " + e.message);
             } finally {
                 setLoading(false);
             }
+
             return;
         }
 
@@ -277,9 +327,8 @@ function Register() {
 
                 let idImageUrl = null;
                 if (formData.idImage) {
-                    const idPath = `${userId}/id_${Date.now()}_${
-                        formData.idImage.name
-                    }`;
+                    const idPath = `${userId}/id_${Date.now()}_${formData.idImage.name
+                        }`;
                     const { error: idErr } = await supabase.storage
                         .from("user-ids")
                         .upload(idPath, formData.idImage);
@@ -352,13 +401,13 @@ function Register() {
                 // Refresh UserContext to pick up the newly inserted profile row
                 try {
                     await refresh();
-                } catch (_) {}
+                } catch (_) { }
                 // Stop camera stream if active to free camera resources
                 try {
                     if (stream) {
                         stream.getTracks().forEach((t) => t.stop());
                     }
-                } catch (_) {}
+                } catch (_) { }
                 // Redirect to Pending Verification page
                 navigate("/pending-verification", { replace: true });
             } catch (err) {
@@ -488,8 +537,8 @@ function Register() {
                             >
                                 {location.lat
                                     ? `Lat: ${location.lat.toFixed(
-                                          4
-                                      )}, Lng: ${location.lng.toFixed(4)}`
+                                        4
+                                    )}, Lng: ${location.lng.toFixed(4)}`
                                     : "Get My Location"}
                             </button>
                             {locationError && (
@@ -779,11 +828,11 @@ function Register() {
                             ? step === 1
                                 ? "Sending OTP..."
                                 : step === 2
-                                ? "Verifying OTP..."
-                                : "Submitting..."
+                                    ? "Verifying OTP..."
+                                    : "Submitting..."
                             : step === 3
-                            ? "Register"
-                            : "Next"}
+                                ? "Register"
+                                : "Next"}
                     </Button>
                 </div>
                 <div className="text-center mt-4 flex flex-row items-center gap-2 justify-center">
