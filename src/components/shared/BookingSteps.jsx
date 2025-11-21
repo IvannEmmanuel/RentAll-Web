@@ -7,10 +7,10 @@ import {
 
 const STEPS = [
     { key: "pending", label: "Pending", icon: Clock },
-    { key: "confirmed", label: "Confirmed", icon: CheckCircle2 },
-    { key: "deposit_submitted", label: "Deposit", icon: CheckCircle2 },
-    { key: "on_the_way", label: "On the way", icon: Truck },
-    { key: "ongoing", label: "Ongoing", icon: PackageCheck },
+    { key: "confirmed", label: "Accepted", icon: CheckCircle2 },
+    { key: "deposit_submitted", label: "Deposit Review", icon: CheckCircle2 },
+    { key: "on_the_way", label: "Ready", icon: Truck },
+    { key: "ongoing", label: "In Use", icon: PackageCheck },
     {
         key: "awaiting_owner_confirmation",
         label: "Returned",
@@ -82,18 +82,21 @@ export function BookingSteps({
     );
 }
 
-export function ProgressLegend() {
+export function ProgressLegend({ labelsOverride = null }) {
     return (
         <div className="flex flex-wrap items-center gap-2 text-xs">
-            {STEPS.map(({ key, label, icon: Icon }) => (
-                <span
-                    key={key}
-                    className="border bg-white text-gray-600 border-gray-200 px-2 py-0.5 rounded-md inline-flex items-center gap-1"
-                >
-                    <Icon className="w-3.5 h-3.5" />
-                    <span>{label}</span>
-                </span>
-            ))}
+            {STEPS.map(({ key, label, icon: Icon }) => {
+                const displayLabel = labelsOverride?.[key] || label;
+                return (
+                    <span
+                        key={key}
+                        className="border bg-white text-gray-600 border-gray-200 px-2 py-0.5 rounded-md inline-flex items-center gap-1"
+                    >
+                        <Icon className="w-3.5 h-3.5" />
+                        <span>{displayLabel}</span>
+                    </span>
+                );
+            })}
         </div>
     );
 }

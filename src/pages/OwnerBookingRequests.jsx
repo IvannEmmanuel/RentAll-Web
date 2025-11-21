@@ -867,7 +867,15 @@ export default function OwnerBookingRequests({
                                     Booking Progress Guide
                                 </span>
                             </div>
-                            <ProgressLegend />
+                            <ProgressLegend
+                                labelsOverride={{
+                                    pending: "Prepare",
+                                    confirmed: "Confirmed",
+                                    deposit_submitted: "Verify",
+                                    on_the_way: "Hand Over",
+                                    ongoing: "In Use",
+                                }}
+                            />
                         </div>
                     </CardContent>
                 </Card>
