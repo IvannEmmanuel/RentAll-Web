@@ -60,7 +60,7 @@ function StatusBadge({ status }) {
 const BOOKING_TABS = [
     {
         key: "pending",
-        label: "Pending",
+        label: "Prepare",
         tip: "Review and approve or reject booking requests.",
     },
     {
@@ -70,11 +70,11 @@ const BOOKING_TABS = [
     },
     {
         key: "deposit",
-        label: "Deposit",
+        label: "Verify",
         tip: "Review deposit proof and verify to proceed.",
     },
-    { key: "onTheWay", label: "On the way", tip: null },
-    { key: "ongoing", label: "Ongoing", tip: null },
+    { key: "onTheWay", label: "Hand Over", tip: null },
+    { key: "ongoing", label: "In Use", tip: null },
     {
         key: "returned",
         label: "Returned/Checkout",
