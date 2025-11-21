@@ -35,7 +35,6 @@ const Chat = ({ favorites, searchTerm, setSearchTerm }) => {
     const [otherUserName, setOtherUserName] = useState("");
     const [itemTitle, setItemTitle] = useState("");
     const [uploadingImages, setUploadingImages] = useState({});
-    const [isOnline, setIsOnline] = useState(false);
 
     // Scroll to bottom
     const scrollToBottom = () => {
@@ -82,8 +81,6 @@ const Chat = ({ favorites, searchTerm, setSearchTerm }) => {
                     setOtherUserName(
                         `${otherUserData.first_name} ${otherUserData.last_name}`
                     );
-                    // Simulate online status (you can implement real presence detection)
-                    setIsOnline(Math.random() > 0.3);
                 }
             }
         } catch (error) {
@@ -527,14 +524,6 @@ const Chat = ({ favorites, searchTerm, setSearchTerm }) => {
                                 <h1 className="font-bold text-lg text-gray-800 truncate">
                                     {otherUserName}
                                 </h1>
-                                {isOnline && (
-                                    <Badge
-                                        variant="secondary"
-                                        className="bg-green-100 text-green-700 text-xs"
-                                    >
-                                        Online
-                                    </Badge>
-                                )}
                             </div>
                             <p className="text-sm text-gray-600 truncate flex items-center">
                                 <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
