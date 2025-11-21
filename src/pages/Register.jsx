@@ -378,7 +378,7 @@ function Register() {
         <div className="flex justify-center min-h-screen bg-gray-100 p-4">
             <div className="w-full max-w-md md:max-w-lg lg:max-w-xl bg-white shadow-lg rounded-2xl flex flex-col items-center p-6">
                 <img
-                    src={rentLogo}
+                    src="logo.png"
                     alt="Logo"
                     className="w-20 h-20 object-contain"
                 />
