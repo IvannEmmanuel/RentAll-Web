@@ -60,12 +60,12 @@ function StatusBadge({ status }) {
 const BOOKING_TABS = [
     {
         key: "pending",
-        label: "Prepare",
+        label: "Pending",
         tip: "Review and approve or reject booking requests.",
     },
     {
         key: "confirmed",
-        label: "Confirmed",
+        label: "Prepare",
         tip: "Waiting for renter to upload deposit proof.",
     },
     {
@@ -869,8 +869,8 @@ export default function OwnerBookingRequests({
                             </div>
                             <ProgressLegend
                                 labelsOverride={{
-                                    pending: "Prepare",
-                                    confirmed: "Confirmed",
+                                    pending: "Pending",
+                                    confirmed: "Prepare",
                                     deposit_submitted: "Verify",
                                     on_the_way: "Hand Over",
                                     ongoing: "In Use",
