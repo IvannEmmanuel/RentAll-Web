@@ -60,12 +60,12 @@ function StatusBadge({ status }) {
 const BOOKING_TABS = [
     {
         key: "pending",
-        label: "Prepare",
+        label: "Pending",
         tip: "Review and approve or reject booking requests.",
     },
     {
         key: "confirmed",
-        label: "Confirmed",
+        label: "Prepare",
         tip: "Waiting for renter to upload deposit proof.",
     },
     {
@@ -917,7 +917,8 @@ export default function OwnerBookingRequests({
                                     Booking Progress Guide
                                 </span>
                             </div>
-                            <ProgressLegend/>
+
+                            <ProgressLegend />
                         </div>
                     </CardContent>
                 </Card>
