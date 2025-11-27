@@ -16,6 +16,7 @@ export default function RequireRole({
 
     const role = user?.role;
     const needsRole = allow.length > 0;
+    const isArchived = !!user?.archived_at;
     // If we have a user but role not loaded yet and we need a role, keep loading
     const waitingOnRole = !!user && needsRole && typeof role === "undefined";
     const unauthorized =
@@ -27,6 +28,10 @@ export default function RequireRole({
             toast.info("You need additional permissions to access this page");
         }
     }, [loading, unauthorized, toast]);
+
+    if (isArchived) {
+        return <Navigate to="/banned" replace state={{ from: location }} />;
+    }
 
     // if (loading || waitingOnRole) return <Loading />;
     if (unauthorized) {

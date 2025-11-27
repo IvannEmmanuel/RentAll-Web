@@ -27,7 +27,8 @@ export default function RequireAuth({ children }) {
         user &&
         (user.status === "banned" ||
             user.account_status === "banned" ||
-            user.is_banned)
+            user.is_banned ||
+            user.archived_at)
     ) {
         return <Navigate to="/banned" replace state={{ from: location }} />;
     }

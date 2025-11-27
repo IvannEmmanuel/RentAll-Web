@@ -45,7 +45,7 @@ export default function ReReviewQueue() {
                     `
                     request_id, item_id, requested_by, status, requested_at, admin_notes,
                     items:items!item_rereview_requests_item_id_fkey(
-                        title, user_id, item_status, created_at, main_image_url,
+                        title, user_id, item_status, created_at, main_image_url, review_update_note,
                         owner:users!items_user_id_fkey(first_name, last_name)
                     ),
                     requester:users!item_rereview_requests_requested_by_fkey(first_name, last_name)
@@ -61,22 +61,45 @@ export default function ReReviewQueue() {
                 try {
                     const { data: itemsData, error: itemsErr } = await supabase
                         .from("items")
-                        .select("item_id, title, main_image_url, user_id, item_status, created_at")
+                        .select(
+                            "item_id, title, main_image_url, user_id, item_status, created_at, review_update_note"
+                        )
                         .in("item_id", itemIds);
 
                     if (!itemsErr && itemsData) {
                         const merged = (data || []).map((row) => {
-                            const found = itemsData.find((i) => i.item_id === row.item_id);
+                            const found = itemsData.find(
+                                (i) => i.item_id === row.item_id
+                            );
                             // Ensure row.items exists and merge fields from items table when missing
                             const base = row.items || {};
                             return {
                                 ...row,
                                 items: {
-                                    title: base.title || (found && found.title) || null,
-                                    user_id: base.user_id || (found && found.user_id) || null,
-                                    item_status: base.item_status || (found && found.item_status) || null,
-                                    created_at: base.created_at || (found && found.created_at) || null,
-                                    main_image_url: (base.main_image_url ?? (found && found.main_image_url)) || null,
+                                    title:
+                                        base.title ||
+                                        (found && found.title) ||
+                                        null,
+                                    user_id:
+                                        base.user_id ||
+                                        (found && found.user_id) ||
+                                        null,
+                                    item_status:
+                                        base.item_status ||
+                                        (found && found.item_status) ||
+                                        null,
+                                    created_at:
+                                        base.created_at ||
+                                        (found && found.created_at) ||
+                                        null,
+                                    main_image_url:
+                                        (base.main_image_url ??
+                                            (found && found.main_image_url)) ||
+                                        null,
+                                    review_update_note:
+                                        base.review_update_note ??
+                                        (found && found.review_update_note) ??
+                                        null,
                                 },
                             };
                         });
@@ -139,15 +162,41 @@ export default function ReReviewQueue() {
         if (!rows || rows.length === 0) return [];
         return rows.filter((r) => {
             // Title
-            if (filterTitle && !String(r.items?.title || "").toLowerCase().includes(filterTitle.toLowerCase())) return false;
+            if (
+                filterTitle &&
+                !String(r.items?.title || "")
+                    .toLowerCase()
+                    .includes(filterTitle.toLowerCase())
+            )
+                return false;
             // Item ID
-            if (filterItemId && !String(r.item_id || "").toLowerCase().includes(filterItemId.toLowerCase())) return false;
+            if (
+                filterItemId &&
+                !String(r.item_id || "")
+                    .toLowerCase()
+                    .includes(filterItemId.toLowerCase())
+            )
+                return false;
             // Requester (first + last)
-            const requesterName = ((r.requester?.first_name || "") + " " + (r.requester?.last_name || "")).trim();
-            if (filterRequester && !requesterName.toLowerCase().includes(filterRequester.toLowerCase())) return false;
+            const requesterName = (
+                (r.requester?.first_name || "") +
+                " " +
+                (r.requester?.last_name || "")
+            ).trim();
+            if (
+                filterRequester &&
+                !requesterName
+                    .toLowerCase()
+                    .includes(filterRequester.toLowerCase())
+            )
+                return false;
             // Status
             if (filterStatus && filterStatus !== "all") {
-                if (String(r.status || "").toLowerCase() !== filterStatus.toLowerCase()) return false;
+                if (
+                    String(r.status || "").toLowerCase() !==
+                    filterStatus.toLowerCase()
+                )
+                    return false;
             }
             // Requested date (YYYY-MM-DD)
             if (filterDate) {
@@ -161,7 +210,14 @@ export default function ReReviewQueue() {
             }
             return true;
         });
-    }, [rows, filterTitle, filterItemId, filterRequester, filterStatus, filterDate]);
+    }, [
+        rows,
+        filterTitle,
+        filterItemId,
+        filterRequester,
+        filterStatus,
+        filterDate,
+    ]);
 
     const takeAction = async ({ row, approve, notes }) => {
         if (!user?.id) {
@@ -305,40 +361,56 @@ export default function ReReviewQueue() {
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
                         <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
                             <div>
-                                <label className="text-xs text-gray-600">Title</label>
+                                <label className="text-xs text-gray-600">
+                                    Title
+                                </label>
                                 <input
                                     value={filterTitle}
-                                    onChange={(e) => setFilterTitle(e.target.value)}
+                                    onChange={(e) =>
+                                        setFilterTitle(e.target.value)
+                                    }
                                     placeholder="Search title"
                                     className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm"
                                 />
                             </div>
 
                             <div>
-                                <label className="text-xs text-gray-600">Item ID</label>
+                                <label className="text-xs text-gray-600">
+                                    Item ID
+                                </label>
                                 <input
                                     value={filterItemId}
-                                    onChange={(e) => setFilterItemId(e.target.value)}
+                                    onChange={(e) =>
+                                        setFilterItemId(e.target.value)
+                                    }
                                     placeholder="Item ID"
                                     className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm"
                                 />
                             </div>
 
                             <div>
-                                <label className="text-xs text-gray-600">Requester</label>
+                                <label className="text-xs text-gray-600">
+                                    Requester
+                                </label>
                                 <input
                                     value={filterRequester}
-                                    onChange={(e) => setFilterRequester(e.target.value)}
+                                    onChange={(e) =>
+                                        setFilterRequester(e.target.value)
+                                    }
                                     placeholder="Requester name"
                                     className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm"
                                 />
                             </div>
 
                             <div>
-                                <label className="text-xs text-gray-600">Status</label>
+                                <label className="text-xs text-gray-600">
+                                    Status
+                                </label>
                                 <select
                                     value={filterStatus}
-                                    onChange={(e) => setFilterStatus(e.target.value)}
+                                    onChange={(e) =>
+                                        setFilterStatus(e.target.value)
+                                    }
                                     className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-white"
                                 >
                                     <option value="all">All</option>
@@ -351,11 +423,17 @@ export default function ReReviewQueue() {
 
                             <div className="flex items-center gap-2">
                                 <div className="w-full">
-                                    <label className="text-xs text-gray-600">Requested Date</label>
+                                    <label className="text-xs text-gray-600">
+                                        Requested Date
+                                    </label>
                                     <input
                                         type="date"
                                         value={filterDate || ""}
-                                        onChange={(e) => setFilterDate(e.target.value || null)}
+                                        onChange={(e) =>
+                                            setFilterDate(
+                                                e.target.value || null
+                                            )
+                                        }
                                         className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-white"
                                     />
                                 </div>
@@ -435,17 +513,50 @@ export default function ReReviewQueue() {
                                                     <button
                                                         type="button"
                                                         onClick={() => {
-                                                            if (r.items?.main_image_url) setImagePreview(r.items.main_image_url);
+                                                            if (
+                                                                r.items
+                                                                    ?.main_image_url
+                                                            )
+                                                                setImagePreview(
+                                                                    r.items
+                                                                        .main_image_url
+                                                                );
                                                             else setViewItem(r);
                                                         }}
                                                         className="w-12 h-12 rounded-md overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-200 p-0"
-                                                        title={r.items?.main_image_url ? 'Open image preview' : 'View details'}
-                                                        aria-label={r.items?.main_image_url ? `Open image for ${r.items?.title || r.item_id}` : `View details for ${r.items?.title || r.item_id}`}
+                                                        title={
+                                                            r.items
+                                                                ?.main_image_url
+                                                                ? "Open image preview"
+                                                                : "View details"
+                                                        }
+                                                        aria-label={
+                                                            r.items
+                                                                ?.main_image_url
+                                                                ? `Open image for ${
+                                                                      r.items
+                                                                          ?.title ||
+                                                                      r.item_id
+                                                                  }`
+                                                                : `View details for ${
+                                                                      r.items
+                                                                          ?.title ||
+                                                                      r.item_id
+                                                                  }`
+                                                        }
                                                     >
-                                                        {r.items?.main_image_url ? (
+                                                        {r.items
+                                                            ?.main_image_url ? (
                                                             <img
-                                                                src={r.items.main_image_url}
-                                                                alt={r.items?.title || 'Item image'}
+                                                                src={
+                                                                    r.items
+                                                                        .main_image_url
+                                                                }
+                                                                alt={
+                                                                    r.items
+                                                                        ?.title ||
+                                                                    "Item image"
+                                                                }
                                                                 className="w-full h-full object-cover"
                                                                 loading="lazy"
                                                             />
@@ -457,11 +568,21 @@ export default function ReReviewQueue() {
                                                     </button>
                                                     <div className="flex flex-col">
                                                         <span className="font-medium text-gray-900 line-clamp-1">
-                                                            {r.items?.title || 'Item'}
+                                                            {r.items?.title ||
+                                                                "Item"}
                                                         </span>
                                                         <span className="text-xs text-amber-700 font-mono">
                                                             {r.item_id}
                                                         </span>
+                                                        {r.items
+                                                            ?.review_update_note && (
+                                                            <span className="text-xs text-gray-600 mt-1 max-w-[200px] truncate">
+                                                                {
+                                                                    r.items
+                                                                        .review_update_note
+                                                                }
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </td>
@@ -564,21 +685,33 @@ export default function ReReviewQueue() {
                     </div>
                 </div>
 
-                    {imagePreview && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <div className="absolute inset-0 bg-black/60" onClick={() => setImagePreview(null)} />
-                            <div className="relative z-10 max-w-[90vw] max-h-[90vh] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
-                                <div className="p-3 border-b flex justify-end">
-                                    <Button variant="ghost" onClick={() => setImagePreview(null)}>Close</Button>
-                                </div>
-                                <div className="p-4 flex items-center justify-center bg-black">
-                                    <img src={imagePreview} alt="Preview" className="max-w-full max-h-[80vh] object-contain" />
-                                </div>
+                {imagePreview && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <div
+                            className="absolute inset-0 bg-black/60"
+                            onClick={() => setImagePreview(null)}
+                        />
+                        <div className="relative z-10 max-w-[90vw] max-h-[90vh] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+                            <div className="p-3 border-b flex justify-end">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => setImagePreview(null)}
+                                >
+                                    Close
+                                </Button>
+                            </div>
+                            <div className="p-4 flex items-center justify-center bg-black">
+                                <img
+                                    src={imagePreview}
+                                    alt="Preview"
+                                    className="max-w-full max-h-[80vh] object-contain"
+                                />
                             </div>
                         </div>
-                    )}
+                    </div>
+                )}
 
-                    {viewItem && (
+                {viewItem && (
                     <RequestDetailsDialog
                         row={viewItem}
                         onClose={() => setViewItem(null)}
@@ -662,8 +795,7 @@ function RequestDetailsDialog({ row, onClose }) {
                                 {row.item_id}
                             </span>
                         </div>
-                        <div className="text-sm text-gray-700">
-                        </div>
+                        <div className="text-sm text-gray-700"></div>
                         <div className="text-sm text-gray-700">
                             <span className="font-medium">Requested by:</span>{" "}
                             {(row.requester?.first_name || "") +
@@ -680,6 +812,20 @@ function RequestDetailsDialog({ row, onClose }) {
                             </span>{" "}
                             {row.items?.item_status}
                         </div>
+                        {row.items?.review_update_note ? (
+                            <div className="mt-2 text-sm text-gray-700">
+                                <span className="font-medium">
+                                    Owner change summary:
+                                </span>{" "}
+                                <span className="whitespace-pre-wrap">
+                                    {row.items.review_update_note}
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="mt-2 text-sm text-gray-500">
+                                No change summary provided for this request.
+                            </div>
+                        )}
                         {row.admin_notes && (
                             <div className="mt-2 text-sm text-gray-700">
                                 <span className="font-medium">

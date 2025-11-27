@@ -23,6 +23,7 @@ import {
     X,
     Filter,
     Download,
+    Archive,
 } from "lucide-react";
 import { useToastApi } from "@/components/ui/toast";
 
@@ -60,7 +61,9 @@ export default function TotalUser() {
             // 2️⃣ Fetch from users table (for ID + Face)
             const { data: userData, error: userErr } = await supabase
                 .from("users")
-                .select("id, id_image_url, face_image_url");
+                .select(
+                    "id, email, id_image_url, face_image_url, account_status, status, archived_at, archived_reason, is_banned"
+                );
 
             if (userErr) throw userErr;
 
@@ -79,6 +82,14 @@ export default function TotalUser() {
                     dob: u.dob,
                     id_image_url: match?.id_image_url || null,
                     face_image_url: match?.face_image_url || null,
+                    email: match?.email || u.email || null,
+                    account_status:
+                        match?.account_status || u.account_status || null,
+                    status: match?.status || u.status || null,
+                    archived_at: match?.archived_at || u.archived_at || null,
+                    archived_reason:
+                        match?.archived_reason || u.archived_reason || null,
+                    is_banned: match?.is_banned ?? u.is_banned ?? null,
                 };
             });
 
@@ -89,11 +100,11 @@ export default function TotalUser() {
         } finally {
             const elapsed = performance.now() - start;
             const remaining = MIN_DURATION - elapsed;
-            if (remaining > 0) await new Promise((res) => setTimeout(res, remaining));
+            if (remaining > 0)
+                await new Promise((res) => setTimeout(res, remaining));
             setLoading(false);
         }
     };
-
 
     useEffect(() => {
         fetchUsers();
@@ -118,7 +129,7 @@ export default function TotalUser() {
         return () => {
             try {
                 supabase.removeChannel(channel);
-            } catch (_) { }
+            } catch (_) {}
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -127,9 +138,12 @@ export default function TotalUser() {
     const stats = useMemo(() => {
         const total = users.length;
         const verified = users.filter((u) => u.face_verified === true).length;
-        const active = users.filter((u) => u.role === "user").length;
+        const active = users.filter(
+            (u) => u.role === "user" && !u.archived_at
+        ).length;
         const pending = users.filter((u) => u.role === "unverified").length;
-        return { total, verified, active, pending };
+        const archived = users.filter((u) => !!u.archived_at).length;
+        return { total, verified, active, pending, archived };
     }, [users]);
 
     // Filtered users
@@ -145,7 +159,11 @@ export default function TotalUser() {
 
             let statusMatch = true;
             if (filterStatus !== "all") {
-                statusMatch = u.role === filterStatus;
+                if (filterStatus === "archived") {
+                    statusMatch = !!u.archived_at;
+                } else {
+                    statusMatch = !u.archived_at && u.role === filterStatus;
+                }
             }
 
             let verificationMatch = true;
@@ -197,6 +215,14 @@ export default function TotalUser() {
         }
     };
 
+    const formatDateTime = (iso) => {
+        try {
+            return new Date(iso).toLocaleString();
+        } catch {
+            return null;
+        }
+    };
+
     const getStatusBadge = (role) => {
         const badges = {
             user: {
@@ -232,6 +258,31 @@ export default function TotalUser() {
                 {badge.label}
             </span>
         );
+    };
+
+    const renderAccountStatus = (user) => {
+        if (!user) return getStatusBadge();
+        if (user.archived_at) {
+            const archivedOn = formatDateTime(user.archived_at);
+            return (
+                <div className="flex flex-col gap-1">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                        Archived
+                    </span>
+                    {user.archived_reason && (
+                        <span className="text-xs text-gray-600 leading-snug max-w-[220px] whitespace-pre-wrap">
+                            {user.archived_reason}
+                        </span>
+                    )}
+                    {archivedOn && (
+                        <span className="text-xs text-gray-400">
+                            Since {archivedOn}
+                        </span>
+                    )}
+                </div>
+            );
+        }
+        return getStatusBadge(user.role);
     };
 
     const getVerificationBadge = (verified) => {
@@ -288,7 +339,7 @@ export default function TotalUser() {
                     </div>
 
                     {/* Statistics Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mt-6">
                         <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                             <div className="flex items-center justify-between mb-3">
                                 <div className="w-10 h-10 rounded-lg bg-[#FFAB00]/10 flex items-center justify-center">
@@ -356,6 +407,23 @@ export default function TotalUser() {
                                 Awaiting verification
                             </p>
                         </div>
+
+                        <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
+                                    <Archive className="w-5 h-5 text-red-600" />
+                                </div>
+                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                    Archived
+                                </span>
+                            </div>
+                            <p className="text-3xl font-bold text-red-600">
+                                {stats.archived}
+                            </p>
+                            <p className="text-xs text-gray-600 mt-1">
+                                Disabled accounts retained for audit
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -413,6 +481,22 @@ export default function TotalUser() {
                         </div>
 
                         {/* Email Filter */}
+                        <div className="space-y-2">
+                            <label className="block text-xs font-medium text-gray-700">
+                                Email
+                            </label>
+                            <div className="relative group">
+                                <Mail className="w-4 h-4 text-gray-400 group-focus-within:text-[#FFAB00] absolute left-3 top-1/2 -translate-y-1/2 transition-colors" />
+                                <input
+                                    placeholder="Search email..."
+                                    className="border border-gray-300 py-2.5 pl-9 pr-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-[#FFAB00] focus:border-transparent transition-all bg-gray-50 focus:bg-white text-sm"
+                                    value={filterEmail}
+                                    onChange={(e) =>
+                                        setFilterEmail(e.target.value)
+                                    }
+                                />
+                            </div>
+                        </div>
 
                         {/* Status Filter */}
                         <div className="space-y-2">
@@ -431,6 +515,7 @@ export default function TotalUser() {
                                 <option value="unverified">Pending</option>
                                 <option value="rejected">Rejected</option>
                                 <option value="admin">Admin</option>
+                                <option value="archived">Archived</option>
                             </select>
                         </div>
 
@@ -523,9 +608,11 @@ export default function TotalUser() {
                                 <p className="text-sm text-gray-600 mt-0.5">
                                     {loading
                                         ? "Loading users..."
-                                        : `Showing ${filtered.length} of ${users.length
-                                        } user${users.length !== 1 ? "s" : ""
-                                        }`}
+                                        : `Showing ${filtered.length} of ${
+                                              users.length
+                                          } user${
+                                              users.length !== 1 ? "s" : ""
+                                          }`}
                                 </p>
                             </div>
                         </div>
@@ -589,7 +676,7 @@ export default function TotalUser() {
                                 {loading && (
                                     <tr>
                                         <td
-                                            colSpan={8}
+                                            colSpan={10}
                                             className="p-8 text-center text-sm text-gray-500"
                                         >
                                             <div className="flex items-center justify-center gap-3">
@@ -602,7 +689,7 @@ export default function TotalUser() {
                                 {!loading && filtered.length === 0 && (
                                     <tr>
                                         <td
-                                            colSpan={8}
+                                            colSpan={10}
                                             className="p-8 text-center text-sm text-gray-500"
                                         >
                                             <div className="flex flex-col items-center gap-2">
@@ -620,8 +707,9 @@ export default function TotalUser() {
                                 {!loading &&
                                     filtered.map((user) => {
                                         const fullName =
-                                            `${user.first_name || ""} ${user.last_name || ""
-                                                }`.trim() || "(No Name)";
+                                            `${user.first_name || ""} ${
+                                                user.last_name || ""
+                                            }`.trim() || "(No Name)";
                                         return (
                                             <tr
                                                 key={user.id}
@@ -643,15 +731,21 @@ export default function TotalUser() {
                                                                 .charAt(0)
                                                                 .toUpperCase()}
                                                         </div>
-                                                        <span className="text-sm font-medium text-gray-900">
-                                                            {fullName}
-                                                        </span>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-medium text-gray-900">
+                                                                {fullName}
+                                                            </span>
+                                                            <span className="text-xs text-gray-500">
+                                                                {user.email ||
+                                                                    "—"}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
                                                     <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
                                                         {typeof user.warnings_count ===
-                                                            "number"
+                                                        "number"
                                                             ? user.warnings_count
                                                             : 0}
                                                     </span>
@@ -659,13 +753,13 @@ export default function TotalUser() {
                                                 <td className="p-4">
                                                     <span className="text-sm text-gray-800">
                                                         {typeof user.total_item_violations ===
-                                                            "number"
+                                                        "number"
                                                             ? user.total_item_violations
                                                             : 0}
                                                     </span>
                                                 </td>
                                                 <td className="p-4">
-                                                    {getStatusBadge(user.role)}
+                                                    {renderAccountStatus(user)}
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-2">
@@ -683,8 +777,8 @@ export default function TotalUser() {
                                                         <span className="text-sm text-gray-700">
                                                             {user.dob
                                                                 ? formatDate(
-                                                                    user.dob
-                                                                )
+                                                                      user.dob
+                                                                  )
                                                                 : "—"}
                                                         </span>
                                                     </div>
@@ -697,13 +791,19 @@ export default function TotalUser() {
                                                 <td className="p-4">
                                                     {user.id_image_url ? (
                                                         <button
-                                                            onClick={() => setPreviewUser(user)}
+                                                            onClick={() =>
+                                                                setPreviewUser(
+                                                                    user
+                                                                )
+                                                            }
                                                             className="text-[#FFAB00] text-sm underline hover:text-[#FF8C00]"
                                                         >
                                                             View Face and ID
                                                         </button>
                                                     ) : (
-                                                        <span className="text-gray-400 text-sm">None</span>
+                                                        <span className="text-gray-400 text-sm">
+                                                            None
+                                                        </span>
                                                     )}
                                                 </td>
                                             </tr>
@@ -760,7 +860,6 @@ export default function TotalUser() {
                                             <img
                                                 src={
                                                     previewUser.id_image_url ||
-                                                    "/placeholder.svg" ||
                                                     "/placeholder.svg"
                                                 }
                                                 alt="User ID Document"
@@ -794,7 +893,9 @@ export default function TotalUser() {
                                     ) : (
                                         <div className="flex flex-col items-center justify-center py-12 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300">
                                             <UserX className="w-12 h-12 mb-2 text-gray-300" />
-                                            <p className="text-sm text-gray-500">No Face document</p>
+                                            <p className="text-sm text-gray-500">
+                                                No Face document
+                                            </p>
                                         </div>
                                     )}
                                 </div>
@@ -827,13 +928,22 @@ export default function TotalUser() {
                                             </p>
                                         </div>
 
+                                        <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                            <p className="text-xs text-gray-500 mb-1">
+                                                Email
+                                            </p>
+                                            <p className="text-sm text-gray-900 break-all">
+                                                {previewUser.email || "—"}
+                                            </p>
+                                        </div>
+
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="bg-white p-4 rounded-lg border border-gray-200">
                                                 <p className="text-xs text-gray-500 mb-2">
                                                     Status
                                                 </p>
-                                                {getStatusBadge(
-                                                    previewUser.role
+                                                {renderAccountStatus(
+                                                    previewUser
                                                 )}
                                             </div>
                                             <div className="bg-white p-4 rounded-lg border border-gray-200">
@@ -856,6 +966,30 @@ export default function TotalUser() {
                                                 )}
                                             </p>
                                         </div>
+                                        {previewUser.archived_at && (
+                                            <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                                                <p className="text-xs font-semibold text-red-700 mb-1">
+                                                    Archived Account
+                                                </p>
+                                                {previewUser.archived_reason && (
+                                                    <p className="text-sm text-red-800 whitespace-pre-wrap">
+                                                        {
+                                                            previewUser.archived_reason
+                                                        }
+                                                    </p>
+                                                )}
+                                                {formatDateTime(
+                                                    previewUser.archived_at
+                                                ) && (
+                                                    <p className="text-xs text-red-600 mt-2">
+                                                        Effective{" "}
+                                                        {formatDateTime(
+                                                            previewUser.archived_at
+                                                        )}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
