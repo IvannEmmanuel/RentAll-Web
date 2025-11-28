@@ -1,4 +1,4 @@
-import React, { Component, useEffect } from "react";
+import React from "react";
 import {
     BrowserRouter as Router,
     Routes,
@@ -47,13 +47,8 @@ function RoleAwareLanding() {
     if (loading) return <Loading />;
     const role = user?.role;
     if (!user) return <Login />;
-    // Banned user check
-    if (
-        user.role === "banned" ||
-        user.account_status === "banned" ||
-        user.is_banned ||
-        user.archived_at
-    ) {
+    // Banned or archived users are redirected to the banned page
+    if (role === "banned" || user.archived_at) {
         return <Navigate to="/banned" replace />;
     }
     if (typeof role === "undefined") return <Loading />;

@@ -23,13 +23,7 @@ export default function RequireAuth({ children }) {
     }
 
     // If user is banned, redirect to /banned
-    if (
-        user &&
-        (user.status === "banned" ||
-            user.account_status === "banned" ||
-            user.is_banned ||
-            user.archived_at)
-    ) {
+    if (user && (user.role === "banned" || user.archived_at)) {
         return <Navigate to="/banned" replace state={{ from: location }} />;
     }
 

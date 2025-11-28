@@ -17,6 +17,7 @@ export default function RequireRole({
     const role = user?.role;
     const needsRole = allow.length > 0;
     const isArchived = !!user?.archived_at;
+    const isBanned = user?.role === "banned";
     // If we have a user but role not loaded yet and we need a role, keep loading
     const waitingOnRole = !!user && needsRole && typeof role === "undefined";
     const unauthorized =
@@ -29,7 +30,7 @@ export default function RequireRole({
         }
     }, [loading, unauthorized, toast]);
 
-    if (isArchived) {
+    if (isArchived || isBanned) {
         return <Navigate to="/banned" replace state={{ from: location }} />;
     }
 

@@ -99,13 +99,10 @@ function Login() {
             }
 
             const archived = !!profile?.archived_at;
-            const isBanned =
-                profile.status === "banned" ||
-                profile.account_status === "banned" ||
-                profile.is_banned;
+            const banned = profile.role === "banned";
 
             // Banned or archived check: redirect and skip toast/navigation
-            if (archived || isBanned) {
+            if (archived || banned) {
                 // Store in localStorage for RequireAuth/guards
                 const userInfo = {
                     id: authUser.id,
@@ -119,6 +116,8 @@ function Login() {
                             ? `Account archived: ${profile.archived_reason}`
                             : "Your account has been archived."
                     );
+                } else {
+                    toast.info("Your account is banned.");
                 }
                 await delay(MIN_NAV_DELAY);
                 return navigate("/banned", { replace: true });
@@ -128,12 +127,6 @@ function Login() {
                 toast.info("Your account is pending admin verification.");
                 await delay(MIN_NAV_DELAY);
                 return navigate("/pending-verification", { replace: true });
-            }
-
-            if (profile.role === "banned") {
-                toast.info("Your account is banned.");
-                await delay(MIN_NAV_DELAY);
-                return navigate("/banned", { replace: true });
             }
 
             // Store combined auth + profile in localStorage (omit sensitive fields; none here)
@@ -223,13 +216,10 @@ function Login() {
             }
 
             const archived = !!profile?.archived_at;
-            const isBanned =
-                profile.status === "banned" ||
-                profile.account_status === "banned" ||
-                profile.is_banned;
+            const banned = profile.role === "banned";
 
             // Banned or archived check: if so, redirect and skip toast/navigation
-            if (archived || isBanned) {
+            if (archived || banned) {
                 const userInfo = {
                     id: userId,
                     email: userEmail,
@@ -242,6 +232,8 @@ function Login() {
                             ? `Account archived: ${profile.archived_reason}`
                             : "Your account has been archived."
                     );
+                } else {
+                    toast.info("Your account is banned.");
                 }
                 await delay(MIN_NAV_DELAY);
                 return navigate("/banned", { replace: true });

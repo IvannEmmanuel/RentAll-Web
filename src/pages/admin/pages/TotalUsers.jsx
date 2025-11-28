@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import AdminLayout from "../../../components/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { supabase } from "../../../../supabaseClient";
@@ -18,11 +18,8 @@ import {
     UserCheck,
     UserX,
     Shield,
-    Mail,
-    Eye,
     X,
     Filter,
-    Download,
     Archive,
 } from "lucide-react";
 import { useToastApi } from "@/components/ui/toast";
@@ -35,14 +32,13 @@ export default function TotalUser() {
     // Filters
     const [filterName, setFilterName] = useState("");
     const [filterId, setFilterId] = useState("");
-    const [filterEmail, setFilterEmail] = useState("");
     const [filterStatus, setFilterStatus] = useState("all");
     const [filterVerification, setFilterVerification] = useState("all");
     const [filterDate, setFilterDate] = useState(null);
     const [previewUser, setPreviewUser] = useState(null);
 
     // Fetch all users
-    const fetchUsers = async () => {
+    const fetchUsers = useCallback(async () => {
         const MIN_DURATION = 800;
         const start = performance.now();
         try {
@@ -58,45 +54,80 @@ export default function TotalUser() {
 
             if (viewErr) throw viewErr;
 
-            // 2️⃣ Fetch from users table (for ID + Face)
+            // 2️⃣ Fetch from users table for profile details not exposed in the view
             const { data: userData, error: userErr } = await supabase
                 .from("users")
                 .select(
-                    "id, email, id_image_url, face_image_url, account_status, status, archived_at, archived_reason, is_banned"
+                    "id, first_name, last_name, created_at, face_verified, role, warnings_count, dob, phone, id_image_url, face_image_url, profile_pic_url, archived_at, archived_reason"
                 );
 
             if (userErr) throw userErr;
 
-            // 3️⃣ Merge both datasets
-            const normalized = (viewData || []).map((u) => {
-                const match = userData?.find((x) => x.id === u.user_id);
+            const viewRows = viewData || [];
+            const userRows = userData || [];
+
+            const userLookup = new Map(userRows.map((row) => [row.id, row]));
+            const viewIds = new Set(viewRows.map((row) => row.user_id));
+
+            // 3️⃣ Merge both datasets while favoring view ordering
+            const normalized = viewRows.map((row) => {
+                const match = userLookup.get(row.user_id);
                 return {
-                    id: u.user_id,
-                    first_name: u.first_name,
-                    last_name: u.last_name,
-                    created_at: u.created_at,
-                    face_verified: u.face_verified,
-                    role: u.role,
-                    warnings_count: u.warnings_count,
-                    total_item_violations: u.total_item_violations,
-                    dob: u.dob,
-                    id_image_url: match?.id_image_url || null,
-                    face_image_url: match?.face_image_url || null,
-                    email: match?.email || u.email || null,
-                    account_status:
-                        match?.account_status || u.account_status || null,
-                    status: match?.status || u.status || null,
-                    archived_at: match?.archived_at || u.archived_at || null,
-                    archived_reason:
-                        match?.archived_reason || u.archived_reason || null,
-                    is_banned: match?.is_banned ?? u.is_banned ?? null,
+                    id: row.user_id,
+                    first_name: row.first_name ?? match?.first_name ?? null,
+                    last_name: row.last_name ?? match?.last_name ?? null,
+                    created_at: row.created_at ?? match?.created_at ?? null,
+                    face_verified:
+                        row.face_verified ?? match?.face_verified ?? null,
+                    role: row.role ?? match?.role ?? null,
+                    warnings_count:
+                        row.warnings_count ?? match?.warnings_count ?? 0,
+                    total_item_violations: row.total_item_violations ?? 0,
+                    dob: row.dob ?? match?.dob ?? null,
+                    phone: match?.phone ?? null,
+                    id_image_url: match?.id_image_url ?? null,
+                    face_image_url: match?.face_image_url ?? null,
+                    profile_pic_url: match?.profile_pic_url ?? null,
+                    archived_at: match?.archived_at ?? null,
+                    archived_reason: match?.archived_reason ?? null,
                 };
             });
 
-            setUsers(normalized);
-        } catch (e) {
-            console.error("Fetch users error", e);
-            toast.error("Failed to load users: " + e.message);
+            // 4️⃣ Include any rows present in users but missing from the view
+            const extras = userRows
+                .filter((row) => !viewIds.has(row.id))
+                .map((row) => ({
+                    id: row.id,
+                    first_name: row.first_name ?? null,
+                    last_name: row.last_name ?? null,
+                    created_at: row.created_at ?? null,
+                    face_verified: row.face_verified ?? null,
+                    role: row.role ?? null,
+                    warnings_count: row.warnings_count ?? 0,
+                    total_item_violations: 0,
+                    dob: row.dob ?? null,
+                    phone: row.phone ?? null,
+                    id_image_url: row.id_image_url ?? null,
+                    face_image_url: row.face_image_url ?? null,
+                    profile_pic_url: row.profile_pic_url ?? null,
+                    archived_at: row.archived_at ?? null,
+                    archived_reason: row.archived_reason ?? null,
+                }));
+
+            const combined = [...normalized, ...extras].sort((a, b) => {
+                const timeA = a.created_at
+                    ? new Date(a.created_at).getTime()
+                    : 0;
+                const timeB = b.created_at
+                    ? new Date(b.created_at).getTime()
+                    : 0;
+                return timeB - timeA;
+            });
+
+            setUsers(combined);
+        } catch (error) {
+            console.error("Fetch users error", error);
+            toast.error("Failed to load users: " + error.message);
         } finally {
             const elapsed = performance.now() - start;
             const remaining = MIN_DURATION - elapsed;
@@ -104,11 +135,11 @@ export default function TotalUser() {
                 await new Promise((res) => setTimeout(res, remaining));
             setLoading(false);
         }
-    };
+    }, [toast]);
 
     useEffect(() => {
         fetchUsers();
-    }, []);
+    }, [fetchUsers]);
 
     // Real-time: refetch when users or item_violations change (feeds view_total_users)
     useEffect(() => {
@@ -129,10 +160,11 @@ export default function TotalUser() {
         return () => {
             try {
                 supabase.removeChannel(channel);
-            } catch (_) {}
+            } catch (error) {
+                console.warn("Failed to remove Supabase channel", error);
+            }
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [fetchUsers]);
 
     // Statistics
     const stats = useMemo(() => {
@@ -142,7 +174,9 @@ export default function TotalUser() {
             (u) => u.role === "user" && !u.archived_at
         ).length;
         const pending = users.filter((u) => u.role === "unverified").length;
-        const archived = users.filter((u) => !!u.archived_at).length;
+        const archived = users.filter(
+            (u) => Boolean(u.archived_at) || u.role === "banned"
+        ).length;
         return { total, verified, active, pending, archived };
     }, [users]);
 
@@ -152,15 +186,13 @@ export default function TotalUser() {
             const fullName = `${u.first_name || ""} ${u.last_name || ""}`
                 .trim()
                 .toLowerCase();
-            const email = (u.email || "").toLowerCase();
             const idMatch = u.id.toLowerCase().includes(filterId.toLowerCase());
             const nameMatch = fullName.includes(filterName.toLowerCase());
-            const emailMatch = email.includes(filterEmail.toLowerCase());
 
             let statusMatch = true;
             if (filterStatus !== "all") {
                 if (filterStatus === "archived") {
-                    statusMatch = !!u.archived_at;
+                    statusMatch = Boolean(u.archived_at) || u.role === "banned";
                 } else {
                     statusMatch = !u.archived_at && u.role === filterStatus;
                 }
@@ -187,7 +219,6 @@ export default function TotalUser() {
             return (
                 idMatch &&
                 nameMatch &&
-                emailMatch &&
                 statusMatch &&
                 verificationMatch &&
                 dateMatch
@@ -197,7 +228,6 @@ export default function TotalUser() {
         users,
         filterName,
         filterId,
-        filterEmail,
         filterStatus,
         filterVerification,
         filterDate,
@@ -245,6 +275,11 @@ export default function TotalUser() {
                 text: "text-purple-700",
                 label: "Admin",
             },
+            banned: {
+                bg: "bg-red-100",
+                text: "text-red-700",
+                label: "Banned",
+            },
         };
         const badge = badges[role] || {
             bg: "bg-gray-100",
@@ -262,12 +297,16 @@ export default function TotalUser() {
 
     const renderAccountStatus = (user) => {
         if (!user) return getStatusBadge();
-        if (user.archived_at) {
-            const archivedOn = formatDateTime(user.archived_at);
+        const isArchived = Boolean(user.archived_at);
+        const isBanned = user.role === "banned";
+        if (isArchived || isBanned) {
+            const archivedOn = isArchived
+                ? formatDateTime(user.archived_at)
+                : null;
             return (
                 <div className="flex flex-col gap-1">
                     <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-                        Archived
+                        {isArchived ? "Archived" : "Banned"}
                     </span>
                     {user.archived_reason && (
                         <span className="text-xs text-gray-600 leading-snug max-w-[220px] whitespace-pre-wrap">
@@ -305,7 +344,6 @@ export default function TotalUser() {
     const clearAllFilters = () => {
         setFilterName("");
         setFilterId("");
-        setFilterEmail("");
         setFilterStatus("all");
         setFilterVerification("all");
         setFilterDate(null);
@@ -314,7 +352,6 @@ export default function TotalUser() {
     const hasActiveFilters =
         filterName ||
         filterId ||
-        filterEmail ||
         filterStatus !== "all" ||
         filterVerification !== "all" ||
         filterDate;
@@ -478,24 +515,6 @@ export default function TotalUser() {
                                 value={filterId}
                                 onChange={(e) => setFilterId(e.target.value)}
                             />
-                        </div>
-
-                        {/* Email Filter */}
-                        <div className="space-y-2">
-                            <label className="block text-xs font-medium text-gray-700">
-                                Email
-                            </label>
-                            <div className="relative group">
-                                <Mail className="w-4 h-4 text-gray-400 group-focus-within:text-[#FFAB00] absolute left-3 top-1/2 -translate-y-1/2 transition-colors" />
-                                <input
-                                    placeholder="Search email..."
-                                    className="border border-gray-300 py-2.5 pl-9 pr-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-[#FFAB00] focus:border-transparent transition-all bg-gray-50 focus:bg-white text-sm"
-                                    value={filterEmail}
-                                    onChange={(e) =>
-                                        setFilterEmail(e.target.value)
-                                    }
-                                />
-                            </div>
                         </div>
 
                         {/* Status Filter */}
@@ -735,10 +754,6 @@ export default function TotalUser() {
                                                             <span className="text-sm font-medium text-gray-900">
                                                                 {fullName}
                                                             </span>
-                                                            <span className="text-xs text-gray-500">
-                                                                {user.email ||
-                                                                    "—"}
-                                                            </span>
                                                         </div>
                                                     </div>
                                                 </td>
@@ -928,15 +943,6 @@ export default function TotalUser() {
                                             </p>
                                         </div>
 
-                                        <div className="bg-white p-4 rounded-lg border border-gray-200">
-                                            <p className="text-xs text-gray-500 mb-1">
-                                                Email
-                                            </p>
-                                            <p className="text-sm text-gray-900 break-all">
-                                                {previewUser.email || "—"}
-                                            </p>
-                                        </div>
-
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="bg-white p-4 rounded-lg border border-gray-200">
                                                 <p className="text-xs text-gray-500 mb-2">
@@ -966,10 +972,13 @@ export default function TotalUser() {
                                                 )}
                                             </p>
                                         </div>
-                                        {previewUser.archived_at && (
+                                        {(previewUser.archived_at ||
+                                            previewUser.role === "banned") && (
                                             <div className="bg-red-50 p-4 rounded-lg border border-red-200">
                                                 <p className="text-xs font-semibold text-red-700 mb-1">
-                                                    Archived Account
+                                                    {previewUser.archived_at
+                                                        ? "Archived Account"
+                                                        : "Banned Account"}
                                                 </p>
                                                 {previewUser.archived_reason && (
                                                     <p className="text-sm text-red-800 whitespace-pre-wrap">
@@ -978,16 +987,17 @@ export default function TotalUser() {
                                                         }
                                                     </p>
                                                 )}
-                                                {formatDateTime(
-                                                    previewUser.archived_at
-                                                ) && (
-                                                    <p className="text-xs text-red-600 mt-2">
-                                                        Effective{" "}
-                                                        {formatDateTime(
-                                                            previewUser.archived_at
-                                                        )}
-                                                    </p>
-                                                )}
+                                                {previewUser.archived_at &&
+                                                    formatDateTime(
+                                                        previewUser.archived_at
+                                                    ) && (
+                                                        <p className="text-xs text-red-600 mt-2">
+                                                            Effective{" "}
+                                                            {formatDateTime(
+                                                                previewUser.archived_at
+                                                            )}
+                                                        </p>
+                                                    )}
                                             </div>
                                         )}
                                     </div>
