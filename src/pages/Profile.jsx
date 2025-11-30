@@ -63,6 +63,10 @@ export default function Profile() {
     const [selectedItem, setSelectedItem] = useState(null);
     const [editOpen, setEditOpen] = useState(false);
 
+    const bookableItemsCount = useMemo(() => {
+        return items.filter((item) => item?.item_status == "approved").length;
+    }, [items]);
+
     const initials = useMemo(() => {
         const f = (profile?.first_name || "").trim();
         const l = (profile?.last_name || "").trim();
@@ -446,8 +450,8 @@ export default function Profile() {
                         Open for booking
                     </h2>
                     <p className="text-sm text-[#1E1E1E]/60 mt-1">
-                        {items.length} {items.length === 1 ? "item" : "items"}{" "}
-                        available
+                        {bookableItemsCount}{" "}
+                        {bookableItemsCount === 1 ? "item" : "items"} available
                     </p>
                 </div>
 
