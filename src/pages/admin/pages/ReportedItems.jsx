@@ -129,17 +129,24 @@ export default function ReportedItems() {
     };
 
     // Send an informational notice to the item owner (and optionally the reporter)
-    const sendNotice = async (complaintId, itemId, ownerId, reason, rentalId = null) => {
+    const sendNotice = async (
+        complaintId,
+        itemId,
+        ownerId,
+        reason,
+        rentalId = null
+    ) => {
         try {
             setSendingNoticeId(complaintId);
 
             // find complaint row to get item title and sender
-            const complaint = rows.find((r) => r.complaint_id === complaintId) || {};
+            const complaint =
+                rows.find((r) => r.complaint_id === complaintId) || {};
             const itemTitle = complaint.item?.title || "your item";
             const reporterId = complaint?.sender_id || null;
 
             const title = "Notice: Your item has been reported";
-            const message = `Your item "${itemTitle}" has been reported for ${reason}. Our admin team will verify and evaluate the issue before deciding on any action. You will be notified once the review is complete.`;
+            const message = `Your item "${itemTitle}" has been reported for ${reason}. Our admin team will verify and evaluate the issue before deciding on any action. If you wish to appeal, contact us through rentall2025@gmail.com within 2-3 business days.`;
 
             // Notify owner
             if (ownerId) {
@@ -156,7 +163,7 @@ export default function ReportedItems() {
             // Optionally notify the reporter that their report was received and owner was notified
             if (reporterId) {
                 const repTitle = "Report Received";
-                const repMessage = `Thanks for reporting \"${itemTitle}\". The owner has been notified and our admin team will review the issue. You will be notified once the review is complete.`;
+                const repMessage = `Thanks for reporting \"${itemTitle}\". The owner has been notified and our admin team will review the issue. If you wish to appeal, contact us through rentall2025@gmail.com within 2-3 business days.`;
                 await createNotification({
                     userId: reporterId,
                     title: repTitle,
@@ -183,9 +190,15 @@ export default function ReportedItems() {
     };
 
     // Notify both owner and reporter when admin resolves/rejects/warns or bans
-    const notifyResolution = async (complaintId, ownerId, actionType, adminNote) => {
+    const notifyResolution = async (
+        complaintId,
+        ownerId,
+        actionType,
+        adminNote
+    ) => {
         try {
-            const complaint = rows.find((r) => r.complaint_id === complaintId) || {};
+            const complaint =
+                rows.find((r) => r.complaint_id === complaintId) || {};
             const senderId = complaint?.sender_id || null;
             const itemTitle = complaint.item?.title || "your item";
 
@@ -517,7 +530,8 @@ export default function ReportedItems() {
                                         variant="outline"
                                         className="border-blue-400 text-blue-700 hover:bg-blue-50 cursor-pointer"
                                         disabled={
-                                            sendingNoticeId === r.complaint_id ||
+                                            sendingNoticeId ===
+                                                r.complaint_id ||
                                             notifiedIds.has(r.complaint_id)
                                         }
                                         onClick={() =>
@@ -538,7 +552,8 @@ export default function ReportedItems() {
                                             "Notified"
                                         ) : (
                                             <>
-                                                <Bell className="w-4 h-4 mr-1" /> Notify
+                                                <Bell className="w-4 h-4 mr-1" />{" "}
+                                                Notify
                                             </>
                                         )}
                                     </Button>

@@ -28,3 +28,4 @@ db
 .env
 .env.example
 supabase_schema.txt
+supa_endpoints_backend_context.txt

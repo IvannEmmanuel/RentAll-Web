@@ -122,7 +122,7 @@ export const NOTIFICATION_TEMPLATES = {
     // Item banned after admin confirmation of a report
     ITEM_BANNED_BY_ADMIN: (itemTitle, details = "") => ({
         title: "🚫 Item Banned",
-        message: `Your item "${itemTitle}" has been banned by an admin after careful consideration of a report${
+        message: `Your item "${itemTitle}" has been banned by an admin after careful consideration of a report. If you wish to appeal, contact us through rentall2025@gmail.com within 2-3 business days ${
             details ? `: ${details}` : ""
         }.
         `,

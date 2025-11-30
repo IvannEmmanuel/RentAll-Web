@@ -12,6 +12,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogFooter,
 } from "@/components/ui/dialog";
 import {
     Camera,
@@ -23,6 +24,7 @@ import {
     Phone,
     Star,
     MapPin,
+    Loader2,
 } from "lucide-react";
 import TopMenu from "@/components/topMenu";
 import EditProfileModal from "@/components/EditProfileModal";
@@ -60,6 +62,10 @@ export default function Profile() {
     const [rentOpen, setRentOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState(null);
     const [editOpen, setEditOpen] = useState(false);
+
+    const bookableItemsCount = useMemo(() => {
+        return items.filter((item) => item?.item_status == "approved").length;
+    }, [items]);
 
     const initials = useMemo(() => {
         const f = (profile?.first_name || "").trim();
@@ -444,8 +450,8 @@ export default function Profile() {
                         Open for booking
                     </h2>
                     <p className="text-sm text-[#1E1E1E]/60 mt-1">
-                        {items.length} {items.length === 1 ? "item" : "items"}{" "}
-                        available
+                        {bookableItemsCount}{" "}
+                        {bookableItemsCount === 1 ? "item" : "items"} available
                     </p>
                 </div>
 
@@ -948,15 +954,19 @@ function EditItemModal({ open, onOpenChange, item, onSaved }) {
 
 function ReReviewButton({ itemId, onRequested }) {
     const { user } = useUserContext();
-    const [loading, setLoading] = useState(true);
+    const [checking, setChecking] = useState(true);
     const [pending, setPending] = useState(false);
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [note, setNote] = useState("");
+    const [noteLoading, setNoteLoading] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
     const toast = useToastApi();
 
     useEffect(() => {
         let cancelled = false;
         const load = async () => {
             try {
-                setLoading(true);
+                setChecking(true);
                 const { data, error } = await supabase
                     .from("item_rereview_requests")
                     .select("status")
@@ -968,7 +978,7 @@ function ReReviewButton({ itemId, onRequested }) {
             } catch (e) {
                 console.warn("Check re-review failed", e);
             } finally {
-                if (!cancelled) setLoading(false);
+                if (!cancelled) setChecking(false);
             }
         };
         load();
@@ -977,18 +987,60 @@ function ReReviewButton({ itemId, onRequested }) {
         };
     }, [itemId]);
 
-    const request = async () => {
+    const handleDialogChange = (open) => {
+        if (!open && submitting) return;
+        setDialogOpen(open);
+        if (!open) {
+            setNote("");
+            setNoteLoading(false);
+        }
+    };
+
+    const openRequestDialog = async () => {
+        if (pending) return;
+        setNote("");
+        setDialogOpen(true);
+        setNoteLoading(true);
         try {
-            setLoading(true);
+            const { data, error } = await supabase
+                .from("items")
+                .select("review_update_note")
+                .eq("item_id", itemId)
+                .maybeSingle();
+            if (error) throw error;
+            setNote(data?.review_update_note || "");
+        } catch (e) {
+            console.warn("Load re-review note failed", e);
+            toast.warning("Could not load the previous change note.");
+        } finally {
+            setNoteLoading(false);
+        }
+    };
+
+    const submitRequest = async () => {
+        const trimmed = note.trim();
+        if (!trimmed) {
+            toast.error("Describe the updates before requesting re-review.");
+            return;
+        }
+        try {
+            setSubmitting(true);
             if (!user?.id) {
                 throw new Error("You must be signed in to request re-review.");
             }
+            const { error: noteError } = await supabase
+                .from("items")
+                .update({ review_update_note: trimmed })
+                .eq("item_id", itemId);
+            if (noteError) throw noteError;
+
             const { error } = await supabase
                 .from("item_rereview_requests")
                 .insert({ item_id: itemId, requested_by: user.id });
             if (error) throw error;
             toast.success("Re-review requested");
             setPending(true);
+            setDialogOpen(false);
             onRequested?.();
         } catch (e) {
             const msg = /uq_item_pending_rereview/i.test(e?.message || "")
@@ -996,26 +1048,76 @@ function ReReviewButton({ itemId, onRequested }) {
                 : e.message || "Request failed";
             toast.error(msg);
         } finally {
-            setLoading(false);
+            setSubmitting(false);
         }
     };
 
     return (
-        <Button
-            className={`w-full font-medium ${
-                pending
-                    ? "bg-gray-200 text-gray-600"
-                    : "bg-[#FFAB00] hover:bg-[#FFAB00]/90 text-[#1E1E1E]"
-            }`}
-            disabled={loading || pending}
-            onClick={request}
-        >
-            {pending
-                ? "Re-review Pending"
-                : loading
-                ? "Checking..."
-                : "Request Re-review"}
-        </Button>
+        <>
+            <Button
+                className={`w-full font-medium ${
+                    pending
+                        ? "bg-gray-200 text-gray-600"
+                        : "bg-[#FFAB00] hover:bg-[#FFAB00]/90 text-[#1E1E1E]"
+                }`}
+                disabled={checking || pending}
+                onClick={openRequestDialog}
+            >
+                {pending
+                    ? "Re-review Pending"
+                    : checking
+                    ? "Checking..."
+                    : "Request Re-review"}
+            </Button>
+            <Dialog open={dialogOpen} onOpenChange={handleDialogChange}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Request Item Re-review</DialogTitle>
+                        <p className="text-sm text-[#1E1E1E]/70">
+                            Share what changed so admins can revisit your
+                            listing.
+                        </p>
+                    </DialogHeader>
+                    {noteLoading ? (
+                        <div className="py-6 text-sm text-gray-500">
+                            Loading previous note...
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-[#1E1E1E]">
+                                Update summary
+                            </label>
+                            <textarea
+                                className="w-full min-h-32 rounded-lg border border-[#1E1E1E]/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FFAB00] focus:border-transparent"
+                                placeholder="Describe the fixes or updates you made before resubmitting."
+                                value={note}
+                                onChange={(e) => setNote(e.target.value)}
+                                disabled={submitting}
+                            />
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => handleDialogChange(false)}
+                            disabled={submitting}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={submitRequest}
+                            disabled={noteLoading || submitting}
+                            className="bg-[#FFAB00] hover:bg-[#FFAB00]/90 text-[#1E1E1E]"
+                        >
+                            {submitting && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
+                            {submitting ? "Submitting..." : "Submit Request"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
 
