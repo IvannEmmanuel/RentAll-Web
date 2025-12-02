@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import AdminLayout from "../../../components/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { supabase } from "../../../../supabaseClient";
@@ -18,11 +18,9 @@ import {
     UserCheck,
     UserX,
     Shield,
-    Mail,
-    Eye,
     X,
     Filter,
-    Download,
+    Archive,
 } from "lucide-react";
 import { useToastApi } from "@/components/ui/toast";
 
@@ -34,14 +32,13 @@ export default function TotalUser() {
     // Filters
     const [filterName, setFilterName] = useState("");
     const [filterId, setFilterId] = useState("");
-    const [filterEmail, setFilterEmail] = useState("");
     const [filterStatus, setFilterStatus] = useState("all");
     const [filterVerification, setFilterVerification] = useState("all");
     const [filterDate, setFilterDate] = useState(null);
     const [previewUser, setPreviewUser] = useState(null);
 
     // Fetch all users
-    const fetchUsers = async () => {
+    const fetchUsers = useCallback(async () => {
         const MIN_DURATION = 800;
         const start = performance.now();
         try {
@@ -57,47 +54,92 @@ export default function TotalUser() {
 
             if (viewErr) throw viewErr;
 
-            // 2️⃣ Fetch from users table (for ID + Face)
+            // 2️⃣ Fetch from users table for profile details not exposed in the view
             const { data: userData, error: userErr } = await supabase
                 .from("users")
-                .select("id, id_image_url, face_image_url");
+                .select(
+                    "id, first_name, last_name, created_at, face_verified, role, warnings_count, dob, phone, id_image_url, face_image_url, profile_pic_url, archived_at, archived_reason"
+                );
 
             if (userErr) throw userErr;
 
-            // 3️⃣ Merge both datasets
-            const normalized = (viewData || []).map((u) => {
-                const match = userData?.find((x) => x.id === u.user_id);
+            const viewRows = viewData || [];
+            const userRows = userData || [];
+
+            const userLookup = new Map(userRows.map((row) => [row.id, row]));
+            const viewIds = new Set(viewRows.map((row) => row.user_id));
+
+            // 3️⃣ Merge both datasets while favoring view ordering
+            const normalized = viewRows.map((row) => {
+                const match = userLookup.get(row.user_id);
                 return {
-                    id: u.user_id,
-                    first_name: u.first_name,
-                    last_name: u.last_name,
-                    created_at: u.created_at,
-                    face_verified: u.face_verified,
-                    role: u.role,
-                    warnings_count: u.warnings_count,
-                    total_item_violations: u.total_item_violations,
-                    dob: u.dob,
-                    id_image_url: match?.id_image_url || null,
-                    face_image_url: match?.face_image_url || null,
+                    id: row.user_id,
+                    first_name: row.first_name ?? match?.first_name ?? null,
+                    last_name: row.last_name ?? match?.last_name ?? null,
+                    created_at: row.created_at ?? match?.created_at ?? null,
+                    face_verified:
+                        row.face_verified ?? match?.face_verified ?? null,
+                    role: row.role ?? match?.role ?? null,
+                    warnings_count:
+                        row.warnings_count ?? match?.warnings_count ?? 0,
+                    total_item_violations: row.total_item_violations ?? 0,
+                    dob: row.dob ?? match?.dob ?? null,
+                    phone: match?.phone ?? null,
+                    id_image_url: match?.id_image_url ?? null,
+                    face_image_url: match?.face_image_url ?? null,
+                    profile_pic_url: match?.profile_pic_url ?? null,
+                    archived_at: match?.archived_at ?? null,
+                    archived_reason: match?.archived_reason ?? null,
                 };
             });
 
-            setUsers(normalized);
-        } catch (e) {
-            console.error("Fetch users error", e);
-            toast.error("Failed to load users: " + e.message);
+            // 4️⃣ Include any rows present in users but missing from the view
+            const extras = userRows
+                .filter((row) => !viewIds.has(row.id))
+                .map((row) => ({
+                    id: row.id,
+                    first_name: row.first_name ?? null,
+                    last_name: row.last_name ?? null,
+                    created_at: row.created_at ?? null,
+                    face_verified: row.face_verified ?? null,
+                    role: row.role ?? null,
+                    warnings_count: row.warnings_count ?? 0,
+                    total_item_violations: 0,
+                    dob: row.dob ?? null,
+                    phone: row.phone ?? null,
+                    id_image_url: row.id_image_url ?? null,
+                    face_image_url: row.face_image_url ?? null,
+                    profile_pic_url: row.profile_pic_url ?? null,
+                    archived_at: row.archived_at ?? null,
+                    archived_reason: row.archived_reason ?? null,
+                }));
+
+            const combined = [...normalized, ...extras].sort((a, b) => {
+                const timeA = a.created_at
+                    ? new Date(a.created_at).getTime()
+                    : 0;
+                const timeB = b.created_at
+                    ? new Date(b.created_at).getTime()
+                    : 0;
+                return timeB - timeA;
+            });
+
+            setUsers(combined);
+        } catch (error) {
+            console.error("Fetch users error", error);
+            toast.error("Failed to load users: " + error.message);
         } finally {
             const elapsed = performance.now() - start;
             const remaining = MIN_DURATION - elapsed;
-            if (remaining > 0) await new Promise((res) => setTimeout(res, remaining));
+            if (remaining > 0)
+                await new Promise((res) => setTimeout(res, remaining));
             setLoading(false);
         }
-    };
-
+    }, [toast]);
 
     useEffect(() => {
         fetchUsers();
-    }, []);
+    }, [fetchUsers]);
 
     // Real-time: refetch when users or item_violations change (feeds view_total_users)
     useEffect(() => {
@@ -118,18 +160,24 @@ export default function TotalUser() {
         return () => {
             try {
                 supabase.removeChannel(channel);
-            } catch (_) { }
+            } catch (error) {
+                console.warn("Failed to remove Supabase channel", error);
+            }
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [fetchUsers]);
 
     // Statistics
     const stats = useMemo(() => {
         const total = users.length;
         const verified = users.filter((u) => u.face_verified === true).length;
-        const active = users.filter((u) => u.role === "user").length;
+        const active = users.filter(
+            (u) => u.role === "user" && !u.archived_at
+        ).length;
         const pending = users.filter((u) => u.role === "unverified").length;
-        return { total, verified, active, pending };
+        const archived = users.filter(
+            (u) => Boolean(u.archived_at) || u.role === "banned"
+        ).length;
+        return { total, verified, active, pending, archived };
     }, [users]);
 
     // Filtered users
@@ -138,14 +186,16 @@ export default function TotalUser() {
             const fullName = `${u.first_name || ""} ${u.last_name || ""}`
                 .trim()
                 .toLowerCase();
-            const email = (u.email || "").toLowerCase();
             const idMatch = u.id.toLowerCase().includes(filterId.toLowerCase());
             const nameMatch = fullName.includes(filterName.toLowerCase());
-            const emailMatch = email.includes(filterEmail.toLowerCase());
 
             let statusMatch = true;
             if (filterStatus !== "all") {
-                statusMatch = u.role === filterStatus;
+                if (filterStatus === "archived") {
+                    statusMatch = Boolean(u.archived_at) || u.role === "banned";
+                } else {
+                    statusMatch = !u.archived_at && u.role === filterStatus;
+                }
             }
 
             let verificationMatch = true;
@@ -169,7 +219,6 @@ export default function TotalUser() {
             return (
                 idMatch &&
                 nameMatch &&
-                emailMatch &&
                 statusMatch &&
                 verificationMatch &&
                 dateMatch
@@ -179,7 +228,6 @@ export default function TotalUser() {
         users,
         filterName,
         filterId,
-        filterEmail,
         filterStatus,
         filterVerification,
         filterDate,
@@ -194,6 +242,14 @@ export default function TotalUser() {
             });
         } catch {
             return "—";
+        }
+    };
+
+    const formatDateTime = (iso) => {
+        try {
+            return new Date(iso).toLocaleString();
+        } catch {
+            return null;
         }
     };
 
@@ -219,6 +275,11 @@ export default function TotalUser() {
                 text: "text-purple-700",
                 label: "Admin",
             },
+            banned: {
+                bg: "bg-red-100",
+                text: "text-red-700",
+                label: "Banned",
+            },
         };
         const badge = badges[role] || {
             bg: "bg-gray-100",
@@ -232,6 +293,35 @@ export default function TotalUser() {
                 {badge.label}
             </span>
         );
+    };
+
+    const renderAccountStatus = (user) => {
+        if (!user) return getStatusBadge();
+        const isArchived = Boolean(user.archived_at);
+        const isBanned = user.role === "banned";
+        if (isArchived || isBanned) {
+            const archivedOn = isArchived
+                ? formatDateTime(user.archived_at)
+                : null;
+            return (
+                <div className="flex flex-col gap-1">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                        {isArchived ? "Archived" : "Banned"}
+                    </span>
+                    {user.archived_reason && (
+                        <span className="text-xs text-gray-600 leading-snug max-w-[220px] whitespace-pre-wrap">
+                            {user.archived_reason}
+                        </span>
+                    )}
+                    {archivedOn && (
+                        <span className="text-xs text-gray-400">
+                            Since {archivedOn}
+                        </span>
+                    )}
+                </div>
+            );
+        }
+        return getStatusBadge(user.role);
     };
 
     const getVerificationBadge = (verified) => {
@@ -254,7 +344,6 @@ export default function TotalUser() {
     const clearAllFilters = () => {
         setFilterName("");
         setFilterId("");
-        setFilterEmail("");
         setFilterStatus("all");
         setFilterVerification("all");
         setFilterDate(null);
@@ -263,7 +352,6 @@ export default function TotalUser() {
     const hasActiveFilters =
         filterName ||
         filterId ||
-        filterEmail ||
         filterStatus !== "all" ||
         filterVerification !== "all" ||
         filterDate;
@@ -288,7 +376,7 @@ export default function TotalUser() {
                     </div>
 
                     {/* Statistics Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mt-6">
                         <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                             <div className="flex items-center justify-between mb-3">
                                 <div className="w-10 h-10 rounded-lg bg-[#FFAB00]/10 flex items-center justify-center">
@@ -356,6 +444,23 @@ export default function TotalUser() {
                                 Awaiting verification
                             </p>
                         </div>
+
+                        <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
+                                    <Archive className="w-5 h-5 text-red-600" />
+                                </div>
+                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                    Archived
+                                </span>
+                            </div>
+                            <p className="text-3xl font-bold text-red-600">
+                                {stats.archived}
+                            </p>
+                            <p className="text-xs text-gray-600 mt-1">
+                                Disabled accounts retained for audit
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -412,8 +517,6 @@ export default function TotalUser() {
                             />
                         </div>
 
-                        {/* Email Filter */}
-
                         {/* Status Filter */}
                         <div className="space-y-2">
                             <label className="block text-xs font-medium text-gray-700">
@@ -431,6 +534,7 @@ export default function TotalUser() {
                                 <option value="unverified">Pending</option>
                                 <option value="rejected">Rejected</option>
                                 <option value="admin">Admin</option>
+                                <option value="archived">Archived</option>
                             </select>
                         </div>
 
@@ -523,9 +627,11 @@ export default function TotalUser() {
                                 <p className="text-sm text-gray-600 mt-0.5">
                                     {loading
                                         ? "Loading users..."
-                                        : `Showing ${filtered.length} of ${users.length
-                                        } user${users.length !== 1 ? "s" : ""
-                                        }`}
+                                        : `Showing ${filtered.length} of ${
+                                              users.length
+                                          } user${
+                                              users.length !== 1 ? "s" : ""
+                                          }`}
                                 </p>
                             </div>
                         </div>
@@ -589,7 +695,7 @@ export default function TotalUser() {
                                 {loading && (
                                     <tr>
                                         <td
-                                            colSpan={8}
+                                            colSpan={10}
                                             className="p-8 text-center text-sm text-gray-500"
                                         >
                                             <div className="flex items-center justify-center gap-3">
@@ -602,7 +708,7 @@ export default function TotalUser() {
                                 {!loading && filtered.length === 0 && (
                                     <tr>
                                         <td
-                                            colSpan={8}
+                                            colSpan={10}
                                             className="p-8 text-center text-sm text-gray-500"
                                         >
                                             <div className="flex flex-col items-center gap-2">
@@ -620,8 +726,9 @@ export default function TotalUser() {
                                 {!loading &&
                                     filtered.map((user) => {
                                         const fullName =
-                                            `${user.first_name || ""} ${user.last_name || ""
-                                                }`.trim() || "(No Name)";
+                                            `${user.first_name || ""} ${
+                                                user.last_name || ""
+                                            }`.trim() || "(No Name)";
                                         return (
                                             <tr
                                                 key={user.id}
@@ -643,15 +750,17 @@ export default function TotalUser() {
                                                                 .charAt(0)
                                                                 .toUpperCase()}
                                                         </div>
-                                                        <span className="text-sm font-medium text-gray-900">
-                                                            {fullName}
-                                                        </span>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-medium text-gray-900">
+                                                                {fullName}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
                                                     <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
                                                         {typeof user.warnings_count ===
-                                                            "number"
+                                                        "number"
                                                             ? user.warnings_count
                                                             : 0}
                                                     </span>
@@ -659,13 +768,13 @@ export default function TotalUser() {
                                                 <td className="p-4">
                                                     <span className="text-sm text-gray-800">
                                                         {typeof user.total_item_violations ===
-                                                            "number"
+                                                        "number"
                                                             ? user.total_item_violations
                                                             : 0}
                                                     </span>
                                                 </td>
                                                 <td className="p-4">
-                                                    {getStatusBadge(user.role)}
+                                                    {renderAccountStatus(user)}
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-2">
@@ -683,8 +792,8 @@ export default function TotalUser() {
                                                         <span className="text-sm text-gray-700">
                                                             {user.dob
                                                                 ? formatDate(
-                                                                    user.dob
-                                                                )
+                                                                      user.dob
+                                                                  )
                                                                 : "—"}
                                                         </span>
                                                     </div>
@@ -697,13 +806,19 @@ export default function TotalUser() {
                                                 <td className="p-4">
                                                     {user.id_image_url ? (
                                                         <button
-                                                            onClick={() => setPreviewUser(user)}
+                                                            onClick={() =>
+                                                                setPreviewUser(
+                                                                    user
+                                                                )
+                                                            }
                                                             className="text-[#FFAB00] text-sm underline hover:text-[#FF8C00]"
                                                         >
                                                             View Face and ID
                                                         </button>
                                                     ) : (
-                                                        <span className="text-gray-400 text-sm">None</span>
+                                                        <span className="text-gray-400 text-sm">
+                                                            None
+                                                        </span>
                                                     )}
                                                 </td>
                                             </tr>
@@ -760,7 +875,6 @@ export default function TotalUser() {
                                             <img
                                                 src={
                                                     previewUser.id_image_url ||
-                                                    "/placeholder.svg" ||
                                                     "/placeholder.svg"
                                                 }
                                                 alt="User ID Document"
@@ -794,7 +908,9 @@ export default function TotalUser() {
                                     ) : (
                                         <div className="flex flex-col items-center justify-center py-12 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300">
                                             <UserX className="w-12 h-12 mb-2 text-gray-300" />
-                                            <p className="text-sm text-gray-500">No Face document</p>
+                                            <p className="text-sm text-gray-500">
+                                                No Face document
+                                            </p>
                                         </div>
                                     )}
                                 </div>
@@ -832,8 +948,8 @@ export default function TotalUser() {
                                                 <p className="text-xs text-gray-500 mb-2">
                                                     Status
                                                 </p>
-                                                {getStatusBadge(
-                                                    previewUser.role
+                                                {renderAccountStatus(
+                                                    previewUser
                                                 )}
                                             </div>
                                             <div className="bg-white p-4 rounded-lg border border-gray-200">
@@ -856,6 +972,34 @@ export default function TotalUser() {
                                                 )}
                                             </p>
                                         </div>
+                                        {(previewUser.archived_at ||
+                                            previewUser.role === "banned") && (
+                                            <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                                                <p className="text-xs font-semibold text-red-700 mb-1">
+                                                    {previewUser.archived_at
+                                                        ? "Archived Account"
+                                                        : "Banned Account"}
+                                                </p>
+                                                {previewUser.archived_reason && (
+                                                    <p className="text-sm text-red-800 whitespace-pre-wrap">
+                                                        {
+                                                            previewUser.archived_reason
+                                                        }
+                                                    </p>
+                                                )}
+                                                {previewUser.archived_at &&
+                                                    formatDateTime(
+                                                        previewUser.archived_at
+                                                    ) && (
+                                                        <p className="text-xs text-red-600 mt-2">
+                                                            Effective{" "}
+                                                            {formatDateTime(
+                                                                previewUser.archived_at
+                                                            )}
+                                                        </p>
+                                                    )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

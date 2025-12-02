@@ -33,7 +33,11 @@ function Login() {
         return adminSet.has(p);
     };
 
-    const navigateAfterLogin = (role) => {
+    const navigateAfterLogin = (profile) => {
+        const role = profile?.role;
+        if (profile?.archived_at) {
+            return navigate("/banned", { replace: true });
+        }
         // If a previous route exists, prefer returning there, but keep role safety
         if (from) {
             const isAdminRoute = isAdminPath(from);
@@ -94,12 +98,11 @@ function Login() {
                 throw new Error("No role assigned to this account");
             }
 
-            // Banned check: if banned, redirect and skip toast/navigation
-            if (
-                profile.status === "banned" ||
-                profile.account_status === "banned" ||
-                profile.is_banned
-            ) {
+            const archived = !!profile?.archived_at;
+            const banned = profile.role === "banned";
+
+            // Banned or archived check: redirect and skip toast/navigation
+            if (archived || banned) {
                 // Store in localStorage for RequireAuth/guards
                 const userInfo = {
                     id: authUser.id,
@@ -107,6 +110,15 @@ function Login() {
                     ...profile,
                 };
                 localStorage.setItem("loggedInUser", JSON.stringify(userInfo));
+                if (archived) {
+                    toast.info(
+                        profile.archived_reason
+                            ? `Account archived: ${profile.archived_reason}`
+                            : "Your account has been archived."
+                    );
+                } else {
+                    toast.info("Your account is banned.");
+                }
                 await delay(MIN_NAV_DELAY);
                 return navigate("/banned", { replace: true });
             }
@@ -115,12 +127,6 @@ function Login() {
                 toast.info("Your account is pending admin verification.");
                 await delay(MIN_NAV_DELAY);
                 return navigate("/pending-verification", { replace: true });
-            }
-
-            if (profile.role === "banned") {
-                toast.info("Your account is banned.");
-                await delay(MIN_NAV_DELAY);
-                return navigate("/banned", { replace: true });
             }
 
             // Store combined auth + profile in localStorage (omit sensitive fields; none here)
@@ -136,7 +142,7 @@ function Login() {
                 profile?.first_name || authUser.email || "there";
             toast.success(`Welcome back, ${greetingName}!`);
             await delay(MIN_NAV_DELAY);
-            navigateAfterLogin(profile.role);
+            navigateAfterLogin(profile);
             await saveFcmToken(authUser.id);
         } catch (err) {
             console.error("Login error:", err.message);
@@ -209,18 +215,26 @@ function Login() {
                 throw new Error("No role assigned to this account");
             }
 
-            // Banned check: if banned, redirect and skip toast/navigation
-            if (
-                profile.status === "banned" ||
-                profile.account_status === "banned" ||
-                profile.is_banned
-            ) {
+            const archived = !!profile?.archived_at;
+            const banned = profile.role === "banned";
+
+            // Banned or archived check: if so, redirect and skip toast/navigation
+            if (archived || banned) {
                 const userInfo = {
                     id: userId,
                     email: userEmail,
                     ...profile,
                 };
                 localStorage.setItem("loggedInUser", JSON.stringify(userInfo));
+                if (archived) {
+                    toast.info(
+                        profile.archived_reason
+                            ? `Account archived: ${profile.archived_reason}`
+                            : "Your account has been archived."
+                    );
+                } else {
+                    toast.info("Your account is banned.");
+                }
                 await delay(MIN_NAV_DELAY);
                 return navigate("/banned", { replace: true });
             }
@@ -240,7 +254,7 @@ function Login() {
 
             toast.success("Signed in successfully with email OTP");
             await delay(MIN_NAV_DELAY);
-            navigateAfterLogin(profile.role);
+            navigateAfterLogin(profile);
         } catch (err) {
             console.error("OTP verify error:", err.message);
             toast.error("Failed to verify OTP: " + err.message);
