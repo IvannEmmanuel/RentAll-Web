@@ -1,5 +1,7 @@
 {
-  "routes": {
-    "/**": "index.html"
-  }
+  "root": "dist",
+  "cleanUrls": true,
+  "redirects": [
+    { "source": "/**", "destination": "/index.html" }
+  ]
 }
