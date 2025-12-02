@@ -571,7 +571,7 @@ function ActionBar({ tabKey, rental, user, onChanged, categories }) {
         if (isAccommodationAny(rental.items?.category_id, categories || [])) {
             primary = <MarkCheckout rental={rental} onChanged={onChanged} />;
         } else {
-            // ✅ FIXED: Always show "Mark as Returned" for ongoing rentals
+            // ✅ FIXED: Always show "Out for Return Transit" for ongoing rentals
             primary = <MarkReturned rental={rental} onChanged={onChanged} />;
         }
     } else if (tabKey === "completed") {
@@ -912,7 +912,7 @@ function MarkReturned({ rental, onChanged }) {
             if (error) throw error;
 
             toast.success(
-                "Marked as returned. Waiting for owner confirmation."
+                "Marked as out for return transit. Waiting for owner confirmation."
             );
 
             // ✅ SEND BOTH NOTIFICATIONS
@@ -982,7 +982,7 @@ function MarkReturned({ rental, onChanged }) {
             disabled={submitting}
             className="cursor-pointer bg-[#FFAB00] text-[#1E1E1E] hover:bg-[#FFAB00]/90 font-semibold"
         >
-            {submitting ? "Marking…" : "Mark as Returned"}
+            {submitting ? "Updating…" : "Out for Return Transit"}
         </Button>
     );
 }

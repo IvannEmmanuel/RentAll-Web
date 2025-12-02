@@ -95,7 +95,7 @@ function Register() {
             } catch (err) {
                 console.error("Face++ API error:", err);
                 setResult("⚠️ Error comparing faces");
-                toast.error("Face compare failed");
+                
             }
         }, "image/jpeg");
     };
