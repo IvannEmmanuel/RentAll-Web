@@ -4,7 +4,7 @@ import { Lock, Mail, Phone, Loader2, Eye, EyeOff } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useToastApi } from "../components/ui/toast";
-import saveFcmToken from "../hooks/save-fcmToken";
+import saveFcmToken from "../hooks/saveFcmToken";
 
 function Login() {
     const MIN_NAV_DELAY = 300; // ms
