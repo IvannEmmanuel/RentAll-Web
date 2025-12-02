@@ -210,7 +210,7 @@ function Register() {
             }
 
             // Phone number must be exactly 11 digits (09123456789)
-            if (!formData.phone || formData.phone.length !== 11) {
+            if (!formData.phone || formData.phone.length !== 12) {
                 toast.error("Phone number must be 11 digits.");
                 return;
             }
