@@ -288,11 +288,10 @@ function Login() {
                         <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
                             <button
                                 type="button"
-                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition ${
-                                    loginMethod === "password"
-                                        ? "bg-[#1e1e1e] text-white shadow"
-                                        : "text-gray-700 hover:bg-gray-200"
-                                }`}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition ${loginMethod === "password"
+                                    ? "bg-[#1e1e1e] text-white shadow"
+                                    : "text-gray-700 hover:bg-gray-200"
+                                    }`}
                                 onClick={() => setLoginMethod("password")}
                             >
                                 <Lock size={16} />
@@ -300,11 +299,10 @@ function Login() {
                             </button>
                             <button
                                 type="button"
-                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition ${
-                                    loginMethod === "email_otp"
-                                        ? "bg-[#1e1e1e] text-white shadow"
-                                        : "text-gray-700 hover:bg-gray-200"
-                                }`}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition ${loginMethod === "email_otp"
+                                    ? "bg-[#1e1e1e] text-white shadow"
+                                    : "text-gray-700 hover:bg-gray-200"
+                                    }`}
                                 onClick={() => setLoginMethod("email_otp")}
                             >
                                 <Mail size={16} />
@@ -327,17 +325,17 @@ function Login() {
                         {/* Email (shared for password and email OTP) */}
                         {(loginMethod === "password" ||
                             loginMethod === "email_otp") && (
-                            <div className="mb-4">
-                                <input
-                                    className="shadow appearance-none border rounded-lg w-full py-3 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline placeholder-gray-400 mb-1"
-                                    id="email"
-                                    type="email"
-                                    placeholder="Enter email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                />
-                            </div>
-                        )}
+                                <div className="mb-4">
+                                    <input
+                                        className="shadow appearance-none border rounded-lg w-full py-3 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline placeholder-gray-400 mb-1"
+                                        id="email"
+                                        type="email"
+                                        placeholder="Enter email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                    />
+                                </div>
+                            )}
 
                         {/* Password login */}
                         {loginMethod === "password" && (
@@ -377,12 +375,13 @@ function Login() {
                                     </button>
                                 </div>
                                 <div>
-                                    <a
+                                    <button
+                                        type="button"
                                         className="inline-block align-baseline font-bold text-sm text-[#F09B35] hover:text-[#DB7C0B]"
-                                        href="/forgot-password"
+                                        onClick={() => navigate("/forgot-password")}
                                     >
                                         Forgot Password?
-                                    </a>
+                                    </button>
                                 </div>
                                 <div className="items-center justify-between mt-5">
                                     <button
@@ -510,12 +509,13 @@ function Login() {
                             <p className="text-gray-600 mb-0">
                                 Don't have an account?
                             </p>
-                            <a
+                            <button
+                                type="button"
                                 className="font-bold text-sm text-[#F09B35] hover:text-[#DB7C0B]"
-                                href="/register"
+                                onClick={() => navigate("/register")}
                             >
                                 Sign Up
-                            </a>
+                            </button>
                         </div>
                     </form>
                 </div>
