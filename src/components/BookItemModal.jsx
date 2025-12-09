@@ -55,6 +55,7 @@ export default function BookItemModal({
     const [reviewsError, setReviewsError] = useState("");
     const [ownerRating, setOwnerRating] = useState({ average: 0, count: 0 });
     const [ownerRatingLoading, setOwnerRatingLoading] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState("cash_on_delivery");
 
     const today = useMemo(() => {
         const d = new Date();
@@ -148,6 +149,7 @@ export default function BookItemModal({
             setRemaining(null);
             setErrorMsg("");
             setRequestedUnits(1);
+            setPaymentMethod("cash_on_delivery");
         }
     }, [open]);
 
@@ -351,6 +353,10 @@ export default function BookItemModal({
             setErrorMsg("Selected dates are fully booked. Try different dates.");
             return;
         }
+        if (!paymentMethod) {
+            setErrorMsg("Please select a payment method.");
+            return;
+        }
         const startMidnight = new Date(range.from);
         startMidnight.setHours(0, 0, 0, 0);
         if (startMidnight < today) {
@@ -377,6 +383,7 @@ export default function BookItemModal({
                 ...base,
                 quantity: unitsToBook,
                 total_cost,
+                payment_method: paymentMethod,
             };
             const { data: insertedBooking, error } = await supabase
                 .from("rental_transactions")
@@ -700,6 +707,55 @@ export default function BookItemModal({
                                         }
                                         className="w-24 border rounded px-2 py-1 text-right"
                                     />
+                                </div>
+                                <Separator className="my-3" />
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium">
+                                        Payment Method
+                                    </p>
+                                    <div className="space-y-2">
+                                        <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-gray-50">
+                                            <input
+                                                type="radio"
+                                                name="paymentMethod"
+                                                value="cash_on_delivery"
+                                                checked={
+                                                    paymentMethod ===
+                                                    "cash_on_delivery"
+                                                }
+                                                onChange={(e) =>
+                                                    setPaymentMethod(
+                                                        e.target.value
+                                                    )
+                                                }
+                                                disabled={loading}
+                                                className="w-4 h-4 cursor-pointer"
+                                            />
+                                            <span className="text-sm">
+                                                Cash On Delivery
+                                            </span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-gray-50">
+                                            <input
+                                                type="radio"
+                                                name="paymentMethod"
+                                                value="meet_up"
+                                                checked={
+                                                    paymentMethod === "meet_up"
+                                                }
+                                                onChange={(e) =>
+                                                    setPaymentMethod(
+                                                        e.target.value
+                                                    )
+                                                }
+                                                disabled={loading}
+                                                className="w-4 h-4 cursor-pointer"
+                                            />
+                                            <span className="text-sm">
+                                                Meet-up
+                                            </span>
+                                        </label>
+                                    </div>
                                 </div>
                                 <Separator className="my-2" />
                                 <div className="flex justify-between">

@@ -80,7 +80,7 @@ const BOOKING_TABS = [
     { key: "awaitingOwnerConfirmDeposit", label: "Deposit Review", tip: null },
     { key: "onTheWay", label: "Ready", tip: null },
     { key: "ongoing", label: "In Use", tip: null },
-    { key: "awaitingOwnerConfirmReturn", label: "Returned", tip: null },
+    { key: "awaitingOwnerConfirmReturn", label: "Pending Return", tip: null },
     { key: "completed", label: "Completed", tip: null },
     { key: "cancelled", label: "Cancelled/Rejected", tip: null },
 ];
@@ -126,18 +126,19 @@ export default function MyBookings() {
             const { data, error } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,start_date,end_date,total_cost,status,quantity,proof_of_deposit_url,owner_confirmed_at,
-             renter:renter_id ( first_name, last_name ),
-             items (
-               title,
-               main_image_url,
-               user_id,
-               category_id,
-               owner:users ( first_name, last_name )
-             )`
+                    `rental_id,item_id,start_date,end_date,total_cost,status,quantity,proof_of_deposit_url,owner_confirmed_at,payment_method,
+                    renter:renter_id ( first_name, last_name ),
+                    items (
+                    title,
+                    main_image_url,
+                    user_id,
+                    category_id,
+                    owner:users ( first_name, last_name )
+                    )`
                 )
                 .eq("renter_id", user.id)
                 .order("created_at", { ascending: false });
+
             if (error) throw error;
             setRows(data || []);
             try {
@@ -240,18 +241,19 @@ export default function MyBookings() {
             const { data, error } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,start_date,end_date,total_cost,status,quantity,proof_of_deposit_url,owner_confirmed_at,
-             renter:renter_id ( first_name, last_name ),
-             items (
-               title,
-               main_image_url,
-               user_id,
-               category_id,
-               owner:users ( first_name, last_name )
-             )`
+                    `rental_id,item_id,start_date,end_date,total_cost,status,quantity,proof_of_deposit_url,owner_confirmed_at,payment_method,
+                    renter:renter_id ( first_name, last_name ),
+                    items (
+                    title,
+                    main_image_url,
+                    user_id,
+                    category_id,
+                    owner:users ( first_name, last_name )
+                    )`
                 )
                 .eq("renter_id", user.id)
                 .order("created_at", { ascending: false });
+
             if (error) throw error;
             setRows(data || []);
         } finally {
@@ -1474,6 +1476,13 @@ function DetailsModal({ rental, user, categories }) {
     const [unitsCount, setUnitsCount] = useState(null);
     const navigate = useNavigate();
 
+    const formatPaymentMethod = (method) => {
+        if (!method) return "—";
+        if (method === "cash_on_delivery") return "Cash On Delivery";
+        if (method === "meet_up") return "Meet-up";
+        return method;
+    };
+
     useEffect(() => {
         if (!open) return;
         setUnitsCount(Number(rental.quantity ?? 1));
@@ -1544,7 +1553,9 @@ function DetailsModal({ rental, user, categories }) {
                                 End
                             </span>
                             <span className="text-[#1E1E1E] font-semibold">
-                                {new Date(rental.end_date).toLocaleDateString()}
+                                {new Date(
+                                    rental.end_date
+                                ).toLocaleDateString()}
                             </span>
                         </div>
                         <div className="flex justify-between">
@@ -1553,6 +1564,15 @@ function DetailsModal({ rental, user, categories }) {
                             </span>
                             <span className="text-[#1E1E1E] font-semibold">
                                 {unitsCount ?? "—"}
+                            </span>
+                        </div>
+                        {/* NEW: Payment method */}
+                        <div className="flex justify-between">
+                            <span className="text-[#1E1E1E]/60 font-medium">
+                                Payment Method
+                            </span>
+                            <span className="text-[#1E1E1E] font-semibold">
+                                {formatPaymentMethod(rental.payment_method)}
                             </span>
                         </div>
                         <div className="flex items-center justify-between">
@@ -1633,6 +1653,7 @@ function DetailsModal({ rental, user, categories }) {
         </Dialog>
     );
 }
+
 
 function UploadDeposit({ rental, onChanged }) {
     const [open, setOpen] = useState(false);

@@ -77,7 +77,7 @@ const BOOKING_TABS = [
     { key: "ongoing", label: "In Use", tip: null },
     {
         key: "returned",
-        label: "Returned/Checkout",
+        label: "Pending Return/Checkout",
         tip: "Confirm returns/checkouts, optionally place on hold for maintenance, or restock now.",
     },
     {
