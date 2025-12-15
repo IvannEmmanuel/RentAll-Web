@@ -16,6 +16,7 @@ function ItemCard({
     date,
     price,
     quantity,
+    nextAvailableDate,
     imageUrl,
     onHeartClick,
     isFavorited,
@@ -91,8 +92,10 @@ function ItemCard({
                         {quantity != null && (
                             <p className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
                                 {Number(quantity) || 0} unit
-                                {(Number(quantity) || 0) !== 1 ? "s" : ""}{" "}
-                                available
+                                {(Number(quantity) || 0) !== 1 ? "s" : ""} available
+                                {Number(quantity) === 0 && nextAvailableDate && (
+                                    <> (Back in {nextAvailableDate})</>
+                                )}
                             </p>
                         )}
                     </div>
@@ -118,17 +121,17 @@ function ItemCard({
                             disabled={isOwner}
                             onClick={!isOwner ? onRentClick : undefined}
                         > */}
-                            <Button
-                                onClick={onRentClick}
-                                size="sm"
-                                disabled={isOutOfStock || isOwner}
-                                className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200 shadow-md hover:shadow-lg ${isOutOfStock
-                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                        : isOwner
-                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                            : 'text-white hover:scale-105'
-                                    }`}
-                            >
+                        <Button
+                            onClick={onRentClick}
+                            size="sm"
+                            disabled={isOutOfStock || isOwner}
+                            className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200 shadow-md hover:shadow-lg ${isOutOfStock
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                : isOwner
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    : 'text-white hover:scale-105'
+                                }`}
+                        >
                             {isOwner
                                 ? 'Your Item'
                                 : isOutOfStock
@@ -144,3 +147,4 @@ function ItemCard({
 }
 
 export default ItemCard;
+

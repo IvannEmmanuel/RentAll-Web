@@ -15,7 +15,6 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import {
-    Camera,
     EllipsisVertical,
     Pencil,
     Trash2,
@@ -58,14 +57,9 @@ export default function Profile() {
     const [loadingRating, setLoadingRating] = useState(true);
     const [reviews, setReviews] = useState([]);
     const [loadingReviews, setLoadingReviews] = useState(true);
-    const [uploading, setUploading] = useState(false);
     const [rentOpen, setRentOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState(null);
     const [editOpen, setEditOpen] = useState(false);
-
-    const bookableItemsCount = useMemo(() => {
-        return items.filter((item) => item?.item_status == "approved").length;
-    }, [items]);
 
     const initials = useMemo(() => {
         const f = (profile?.first_name || "").trim();
@@ -73,41 +67,6 @@ export default function Profile() {
         return `${f[0] || ""}${l[0] || ""}`.toUpperCase() || "U";
     }, [profile]);
 
-    const onUploadFace = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        if (!authUser?.id || !isOwnProfile) {
-            toast.error("No user context");
-            return;
-        }
-        try {
-            setUploading(true);
-            const picPath = `${authUser.id}/profile/${Date.now()}_${file.name}`;
-            const { error: upErr } = await supabase.storage
-                .from("user-profile-pic")
-                .upload(picPath, file, { upsert: false });
-            if (upErr) throw upErr;
-            const { data: pub } = supabase.storage
-                .from("user-profile-pic")
-                .getPublicUrl(picPath);
-            const publicUrl = pub?.publicUrl;
-            if (!publicUrl) throw new Error("Could not get public URL");
-
-            const { error: updErr } = await supabase
-                .from("users")
-                .update({ profile_pic_url: publicUrl })
-                .eq("id", authUser.id);
-            if (updErr) throw updErr;
-            toast.success("Profile picture updated");
-            // Refresh local profile
-            setProfile((p) => ({ ...(p || {}), profile_pic_url: publicUrl }));
-        } catch (err) {
-            console.error("Upload error:", err);
-            toast.error("Failed to upload: " + err.message);
-        } finally {
-            setUploading(false);
-        }
-    };
 
     const loadProfile = useCallback(async () => {
         if (!profileUserId) return;
@@ -294,36 +253,6 @@ export default function Profile() {
                                     </AvatarFallback>
                                 </Avatar>
                             )}
-                            {isOwnProfile && !loadingProfile && (
-                                <>
-                                    <input
-                                        id="face-upload-input"
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={onUploadFace}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            document
-                                                .getElementById(
-                                                    "face-upload-input"
-                                                )
-                                                ?.click()
-                                        }
-                                        className="absolute -bottom-1 -right-1 bg-[#FFAB00] hover:bg-[#FFAB00]/90 text-[#1E1E1E] rounded-full p-2.5 shadow-lg transition-all hover:scale-105"
-                                        title={
-                                            uploading
-                                                ? "Uploading..."
-                                                : "Change photo"
-                                        }
-                                        disabled={uploading}
-                                    >
-                                        <Camera className="h-4 w-4" />
-                                    </button>
-                                </>
-                            )}
                         </div>
                         <div className="flex-1">
                             {loadingProfile ? (
@@ -450,8 +379,8 @@ export default function Profile() {
                         Open for booking
                     </h2>
                     <p className="text-sm text-[#1E1E1E]/60 mt-1">
-                        {bookableItemsCount}{" "}
-                        {bookableItemsCount === 1 ? "item" : "items"} available
+                        {items.length} {items.length === 1 ? "item" : "items"}{" "}
+                        available
                     </p>
                 </div>
 

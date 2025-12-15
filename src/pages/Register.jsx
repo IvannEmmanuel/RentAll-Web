@@ -378,6 +378,7 @@ function Register() {
                                     : null,
                             id_image_url: idImageUrl,
                             face_image_url: faceImageUrl,
+                            profile_pic_url: faceImageUrl,
                             face_verified: false,
                             role: "unverified",
                         },

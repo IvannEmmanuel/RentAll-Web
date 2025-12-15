@@ -169,85 +169,86 @@ function Home() {
                 (data || []).map(async (it) => {
                     const imagePromise = getImageUrl(it.user_id, it.item_id);
                     const availabilityPromise = (async () => {
-                        try {
-                            const consumingStatuses = [
-                                "confirmed",
-                                "deposit_submitted",
-                                "on_the_way",
-                                "ongoing",
-                                "awaiting_owner_confirmation",
-                            ];
-                            const departedStatuses = [
-                                "on_the_way",
-                                "ongoing",
-                                "awaiting_owner_confirmation",
-                            ];
+    try {
+        const consumingStatuses = [
+            "confirmed",
+            "deposit_submitted",
+            "on_the_way",
+            "ongoing",
+            "awaiting_owner_confirmation",
+        ];
 
-                            const [
-                                { data: consumeRows, error: cErr },
-                                { data: departedRows, error: dErr },
-                            ] = await Promise.all([
-                                supabase
-                                    .from("rental_transactions")
-                                    .select(
-                                        "quantity, start_date, end_date, status"
-                                    )
-                                    .eq("item_id", it.item_id)
-                                    .in("status", consumingStatuses),
-                                supabase
-                                    .from("rental_transactions")
-                                    .select(
-                                        "quantity, start_date, end_date, status"
-                                    )
-                                    .eq("item_id", it.item_id)
-                                    .in("status", departedStatuses)
-                                    .lte("start_date", todayStr)
-                                    .gte("end_date", todayStr),
-                            ]);
+        const { data: rentals, error } = await supabase
+            .from("rental_transactions")
+            .select("quantity, start_date, end_date, status")
+            .eq("item_id", it.item_id)
+            .in("status", consumingStatuses);
 
-                            if (cErr) throw cErr;
-                            if (dErr) throw dErr;
+        if (error) throw error;
 
-                            const sum = (rows) =>
-                                (rows || []).reduce(
-                                    (acc, r) => acc + (Number(r.quantity) || 0),
-                                    0
-                                );
-                            const consumeSum = sum(consumeRows);
-                            const departedSum = sum(departedRows);
+        const totalRented = (rentals || []).reduce(
+            (sum, r) => sum + (Number(r.quantity) || 0),
+            0
+        );
 
-                            const baseCapacity =
-                                (Number(it.quantity) || 0) + departedSum;
-                            const remaining = Math.max(
-                                0,
-                                baseCapacity - consumeSum
-                            );
+        const remaining = Math.max(
+            0,
+            (Number(it.quantity) || 0) - totalRented
+        );
 
-                            return remaining;
-                        } catch (e) {
-                            console.warn(
-                                "availability calc failed for item",
-                                it.item_id,
-                                e?.message || e
-                            );
-                            return Number(it.quantity) || 0;
-                        }
-                    })();
-                    const [imageUrl, remainingUnits] = await Promise.all([
-                        imagePromise,
-                        availabilityPromise,
-                    ]);
+        let nextAvailableDate = null;
+
+        if (remaining === 0 && rentals?.length) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const allEndDates = rentals
+        .map(r => new Date(r.end_date))
+        .sort((a, b) => a - b);
+
+    const futureReturns = allEndDates.filter(d => d >= today);
+
+    const dateToShow =
+        futureReturns.length > 0
+            ? futureReturns[0]       // normal case
+            : allEndDates[allEndDates.length - 1]; // overdue return
+
+    nextAvailableDate = dateToShow.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+    });
+}
+
+
+        return { remaining, nextAvailableDate };
+    } catch (e) {
+        console.warn("availability calc failed", e);
+        return {
+            remaining: Number(it.quantity) || 0,
+            nextAvailableDate: null,
+        };
+    }
+})();
+
+                    const [imageUrl, availability] = await Promise.all([
+    imagePromise,
+    availabilityPromise,
+]);
+
+
 
                     return {
                         ownerId: it.user_id,
-                        title: it.title,
-                        description: it.description || "",
-                        location: it.location || "",
-                        date: new Date(it.created_at).toLocaleDateString(),
-                        price: String(it.price_per_day),
-                        quantity: remainingUnits,
-                        imageUrl: imageUrl,
-                        raw: it,
+    title: it.title,
+    description: it.description || "",
+    location: it.location || "",
+    date: new Date(it.created_at).toLocaleDateString(),
+    price: String(it.price_per_day),
+    quantity: availability.remaining,
+    nextAvailableDate: availability.nextAvailableDate,
+    imageUrl,
+    raw: it,
                     };
                 })
             );
@@ -734,6 +735,7 @@ function Home() {
                                     date={item.date}
                                     price={item.price}
                                     quantity={item.quantity}
+                                    nextAvailableDate={item.nextAvailableDate}
                                     imageUrl={item.imageUrl}
                                     isOwner={user?.id === item.ownerId}
                                     isFavorited={isFavorited(item.raw?.item_id)}
