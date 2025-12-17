@@ -23,6 +23,13 @@ export default function ReportedUsers() {
     const [statusFilter, setStatusFilter] = useState("pending");
     const [resolvingId, setResolvingId] = useState(null);
 
+    // Search and filter state
+    const [searchTerm, setSearchTerm] = useState("");
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
+    const [reasonFilter, setReasonFilter] = useState(""); // New reason filter
+    const [sortBy, setSortBy] = useState("date-desc"); // date-desc, date-asc, name-asc
+
     // For resolution note dialog
     const [noteDialog, setNoteDialog] = useState({
         open: false,
@@ -69,6 +76,92 @@ export default function ReportedUsers() {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    // --- Helper functions ---
+
+    // Smart search and filter
+    const getFilteredAndSortedRows = () => {
+        let filtered = [...rows];
+
+        // Apply search term
+        if (searchTerm.trim()) {
+            const term = searchTerm.toLowerCase();
+            filtered = filtered.filter((r) => {
+                const targetName =
+                    `${r.target_user?.first_name || ""} ${r.target_user?.last_name || ""}`.toLowerCase();
+                const senderName =
+                    `${r.sender?.first_name || ""} ${r.sender?.last_name || ""}`.toLowerCase();
+                const reason = (r.reason || "").toLowerCase();
+                const content = (r.content || "").toLowerCase();
+
+                return (
+                    targetName.includes(term) ||
+                    senderName.includes(term) ||
+                    reason.includes(term) ||
+                    content.includes(term)
+                );
+            });
+        }
+
+        // Apply reason filter
+        if (reasonFilter) {
+            filtered = filtered.filter((r) => r.reason === reasonFilter);
+        }
+
+        // Apply date range filter
+        if (dateFrom || dateTo) {
+            filtered = filtered.filter((r) => {
+                const reportDate = new Date(r.sent_at);
+                if (dateFrom) {
+                    const from = new Date(dateFrom);
+                    if (reportDate < from) return false;
+                }
+                if (dateTo) {
+                    const to = new Date(dateTo);
+                    to.setHours(23, 59, 59, 999);
+                    if (reportDate > to) return false;
+                }
+                return true;
+            });
+        }
+
+        // Apply status filter (if not "all")
+        if (statusFilter && statusFilter !== "all") {
+            filtered = filtered.filter((r) => r.status === statusFilter);
+        }
+
+        // Apply sorting
+        if (sortBy === "date-desc") {
+            filtered.sort((a, b) => new Date(b.sent_at) - new Date(a.sent_at));
+        } else if (sortBy === "date-asc") {
+            filtered.sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
+        } else if (sortBy === "name-asc") {
+            filtered.sort((a, b) => {
+                const nameA =
+                    `${a.target_user?.first_name || ""} ${a.target_user?.last_name || ""}`.toLowerCase();
+                const nameB =
+                    `${b.target_user?.first_name || ""} ${b.target_user?.last_name || ""}`.toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+        }
+
+        return filtered;
+    };
+
+    // Get unique reasons from all rows
+    const getUniqueReasons = () => {
+        const reasons = [...new Set(rows.map((r) => r.reason).filter(Boolean))];
+        return reasons.sort();
+    };
+
+    const clearFilters = () => {
+        setSearchTerm("");
+        setDateFrom("");
+        setDateTo("");
+        setReasonFilter("");
+        setSortBy("date-desc");
+        setStatusFilter("pending");
+    };
 
     // --- Helper functions ---
 
@@ -350,230 +443,345 @@ export default function ReportedUsers() {
                 </div>
 
                 {/* Filters */}
-                <div className="flex items-center gap-3 mb-6">
-                    <label className="text-sm font-medium">Status</label>
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="border rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    >
-                        <option value="pending">Pending</option>
-                        <option value="resolved">Resolved</option>
-                        <option value="rejected">Rejected</option>
-                        <option value="all">All</option>
-                    </select>
-                    <Button
-                        variant="outline"
-                        onClick={fetchData}
-                        disabled={loading}
-                        className="cursor-pointer"
-                    >
-                        {loading && (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        )}
-                        Refresh
-                    </Button>
+                <div className="bg-white rounded-lg shadow-sm border p-4 space-y-4">
+                    {/* Search Bar */}
+                    <div>
+                        <label className="text-sm font-medium block mb-2">
+                            Search
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="Search by name, reason, content..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                            Searches target user, reporter, reason, and complaint content
+                        </p>
+                    </div>
+
+                    {/* Date Range */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-sm font-medium block mb-2">
+                                Date From
+                            </label>
+                            <input
+                                type="date"
+                                value={dateFrom}
+                                onChange={(e) => setDateFrom(e.target.value)}
+                                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium block mb-2">
+                                Date To
+                            </label>
+                            <input
+                                type="date"
+                                value={dateTo}
+                                onChange={(e) => setDateTo(e.target.value)}
+                                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Status & Sort */}
+                    <div className="grid grid-cols-3 gap-4">
+                        <div>
+                            <label className="text-sm font-medium block mb-2">
+                                Status
+                            </label>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            >
+                                <option value="pending">Pending</option>
+                                <option value="resolved">Resolved</option>
+                                <option value="rejected">Rejected</option>
+                                <option value="all">All</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium block mb-2">
+                                Reason
+                            </label>
+                            <select
+                                value={reasonFilter}
+                                onChange={(e) => setReasonFilter(e.target.value)}
+                                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            >
+                                <option value="">All Reasons</option>
+                                {getUniqueReasons().map((reason) => (
+                                    <option key={reason} value={reason}>
+                                        {reason.charAt(0).toUpperCase() + reason.slice(1)}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium block mb-2">
+                                Sort By
+                            </label>
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value)}
+                                className="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            >
+                                <option value="date-desc">
+                                    Date (Newest First)
+                                </option>
+                                <option value="date-asc">
+                                    Date (Oldest First)
+                                </option>
+                                <option value="name-asc">
+                                    Target User Name (A-Z)
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2 pt-2">
+                        <Button
+                            variant="outline"
+                            onClick={fetchData}
+                            disabled={loading}
+                            className="cursor-pointer"
+                        >
+                            {loading && (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            )}
+                            Refresh
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={clearFilters}
+                            className="cursor-pointer"
+                            disabled={
+                                !searchTerm &&
+                                !dateFrom &&
+                                !dateTo &&
+                                !reasonFilter &&
+                                statusFilter === "pending" &&
+                                sortBy === "date-desc"
+                            }
+                        >
+                            Clear Filters
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Table */}
                 <div className="bg-white rounded-lg shadow-sm border p-4">
                     {loading ? (
                         <div className="text-sm text-gray-600">Loading…</div>
-                    ) : rows.length === 0 ? (
+                    ) : getFilteredAndSortedRows().length === 0 ? (
                         <div className="text-sm text-gray-600">
-                            No reports found.
+                            {rows.length === 0
+                                ? "No reports found."
+                                : "No reports match your filters."}
                         </div>
                     ) : (
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="border-b bg-gray-50 text-gray-700 text-sm">
-                                    <th className="p-2">Target User</th>
-                                    <th className="p-2">Reported By</th>
-                                    <th className="p-2">Reason</th>
-                                    <th className="p-2">Sent</th>
-                                    <th className="p-2">Status</th>
-                                    <th className="p-2">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {rows.map((r) => (
-                                    <tr
-                                        key={r.complaint_id}
-                                        className="border-b hover:bg-gray-50"
-                                    >
-                                        <td className="p-2 text-sm">
-                                            {r.target_user
-                                                ? `${r.target_user.first_name} ${r.target_user.last_name}`
-                                                : r.target_user_id}
-                                        </td>
-                                        <td className="p-2 text-sm">
-                                            {r.sender
-                                                ? `${r.sender.first_name} ${r.sender.last_name}`
-                                                : r.sender_id}
-                                        </td>
-                                        <td className="p-2 text-sm capitalize">
-                                            {r.reason}
-                                        </td>
-                                        <td className="p-2 text-sm">
-                                            {r.sent_at
-                                                ? new Date(
-                                                      r.sent_at
-                                                  ).toLocaleString()
-                                                : "—"}
-                                        </td>
-                                        <td className="p-2 text-sm capitalize">
-                                            {r.status}
-                                        </td>
-                                        <td className="p-2">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <ReportDetailsDialog row={r} />
-
-                                                {r.status === "pending" && (
-                                                    <>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            className="border-blue-400 text-blue-700 hover:bg-blue-50 cursor-pointer"
-                                                            disabled={
-                                                                sendingNoticeId === r.complaint_id ||
-                                                                notifiedIds.has(r.complaint_id)
-                                                            }
-                                                            onClick={() =>
-                                                                // guard in case someone somehow clicks while marked notified
-                                                                !notifiedIds.has(r.complaint_id) &&
-                                                                sendNotice(
-                                                                    r.complaint_id,
-                                                                    r.target_user_id,
-                                                                    r.reason,
-                                                                    r.rental_id
-                                                                )
-                                                            }
-                                                            title="Send an informational notice to the reported user."
-                                                        >
-                                                            {sendingNoticeId === r.complaint_id ? (
-                                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                            ) : notifiedIds.has(r.complaint_id) ? (
-                                                                // show a non-clickable acknowledged state
-                                                                "Notified"
-                                                            ) : (
-                                                                <>
-                                                                    <Bell className="w-4 h-4 mr-1" /> Notify
-                                                                </>
-                                                            )}
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            className="bg-yellow-500 text-white hover:bg-yellow-600 cursor-pointer"
-                                                            disabled={
-                                                                resolvingId ===
-                                                                r.complaint_id
-                                                            }
-                                                            onClick={() =>
-                                                                handleActionWithNote(
-                                                                    "warn",
-                                                                    r.complaint_id,
-                                                                    r.target_user_id,
-                                                                    1
-                                                                )
-                                                            }
-                                                            title="Adds 1 warning to the user and resolves the report."
-                                                        >
-                                                            {resolvingId ===
-                                                            r.complaint_id ? (
-                                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                            ) : (
-                                                                <>
-                                                                    <Gavel className="w-4 h-4 mr-1" />{" "}
-                                                                    +1 Warning
-                                                                </>
-                                                            )}
-                                                        </Button>
-
-                                                        <Button
-                                                            size="sm"
-                                                            className="bg-red-600 text-white hover:bg-red-700 cursor-pointer"
-                                                            disabled={
-                                                                resolvingId ===
-                                                                r.complaint_id
-                                                            }
-                                                            onClick={() =>
-                                                                handleActionWithNote(
-                                                                    "warn",
-                                                                    r.complaint_id,
-                                                                    r.target_user_id,
-                                                                    3
-                                                                )
-                                                            }
-                                                            title="Adds 3 warnings to the user and resolves the report."
-                                                        >
-                                                            {resolvingId ===
-                                                            r.complaint_id ? (
-                                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                            ) : (
-                                                                <>
-                                                                    <Gavel className="w-4 h-4 mr-1" />{" "}
-                                                                    +3 Warnings
-                                                                </>
-                                                            )}
-                                                        </Button>
-
-                                                        <Button
-                                                            size="sm"
-                                                            className="bg-green-600 text-white hover:bg-green-700 cursor-pointer"
-                                                            disabled={
-                                                                resolvingId ===
-                                                                r.complaint_id
-                                                            }
-                                                            onClick={() =>
-                                                                handleActionWithNote(
-                                                                    "resolve",
-                                                                    r.complaint_id
-                                                                )
-                                                            }
-                                                            title="Marks the report as resolved without adding warnings."
-                                                        >
-                                                            {resolvingId ===
-                                                            r.complaint_id ? (
-                                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                            ) : (
-                                                                "Mark Resolved"
-                                                            )}
-                                                        </Button>
-
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            className="border-gray-400 text-gray-700 hover:bg-gray-100 cursor-pointer"
-                                                            disabled={
-                                                                resolvingId ===
-                                                                r.complaint_id
-                                                            }
-                                                            onClick={() =>
-                                                                handleActionWithNote(
-                                                                    "reject",
-                                                                    r.complaint_id
-                                                                )
-                                                            }
-                                                            title="Rejects the report (no action taken, marks as rejected)."
-                                                        >
-                                                            {resolvingId ===
-                                                            r.complaint_id ? (
-                                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                            ) : (
-                                                                <>
-                                                                    <ThumbsDown className="w-4 h-4 mr-1" />{" "}
-                                                                    Reject
-                                                                </>
-                                                            )}
-                                                        </Button>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </td>
+                        <>
+                            <div className="text-sm text-gray-600 mb-3">
+                                Showing {getFilteredAndSortedRows().length} of{" "}
+                                {rows.length} report
+                                {rows.length !== 1 ? "s" : ""}
+                            </div>
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b bg-gray-50 text-gray-700 text-sm">
+                                        <th className="p-2">Target User</th>
+                                        <th className="p-2">Reported By</th>
+                                        <th className="p-2">Reason</th>
+                                        <th className="p-2">Sent</th>
+                                        <th className="p-2">Status</th>
+                                        <th className="p-2">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {getFilteredAndSortedRows().map((r) => (
+                                        <tr
+                                            key={r.complaint_id}
+                                            className="border-b hover:bg-gray-50"
+                                        >
+                                            <td className="p-2 text-sm">
+                                                {r.target_user
+                                                    ? `${r.target_user.first_name} ${r.target_user.last_name}`
+                                                    : r.target_user_id}
+                                            </td>
+                                            <td className="p-2 text-sm">
+                                                {r.sender
+                                                    ? `${r.sender.first_name} ${r.sender.last_name}`
+                                                    : r.sender_id}
+                                            </td>
+                                            <td className="p-2 text-sm capitalize">
+                                                {r.reason}
+                                            </td>
+                                            <td className="p-2 text-sm">
+                                                {r.sent_at
+                                                    ? new Date(
+                                                          r.sent_at
+                                                      ).toLocaleString()
+                                                    : "—"}
+                                            </td>
+                                            <td className="p-2 text-sm capitalize">
+                                                {r.status}
+                                            </td>
+                                            <td className="p-2">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <ReportDetailsDialog row={r} />
+
+                                                    {r.status === "pending" && (
+                                                        <>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="border-blue-400 text-blue-700 hover:bg-blue-50 cursor-pointer"
+                                                                disabled={
+                                                                    sendingNoticeId === r.complaint_id ||
+                                                                    notifiedIds.has(r.complaint_id)
+                                                                }
+                                                                onClick={() =>
+                                                                    // guard in case someone somehow clicks while marked notified
+                                                                    !notifiedIds.has(r.complaint_id) &&
+                                                                    sendNotice(
+                                                                        r.complaint_id,
+                                                                        r.target_user_id,
+                                                                        r.reason,
+                                                                        r.rental_id
+                                                                    )
+                                                                }
+                                                                title="Send an informational notice to the reported user."
+                                                            >
+                                                                {sendingNoticeId === r.complaint_id ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                                ) : notifiedIds.has(r.complaint_id) ? (
+                                                                    // show a non-clickable acknowledged state
+                                                                    "Notified"
+                                                                ) : (
+                                                                    <>
+                                                                        <Bell className="w-4 h-4 mr-1" /> Notify
+                                                                    </>
+                                                                )}
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                className="bg-yellow-500 text-white hover:bg-yellow-600 cursor-pointer"
+                                                                disabled={
+                                                                    resolvingId ===
+                                                                    r.complaint_id
+                                                                }
+                                                                onClick={() =>
+                                                                    handleActionWithNote(
+                                                                        "warn",
+                                                                        r.complaint_id,
+                                                                        r.target_user_id,
+                                                                        1
+                                                                    )
+                                                                }
+                                                                title="Adds 1 warning to the user and resolves the report."
+                                                            >
+                                                                {resolvingId ===
+                                                                r.complaint_id ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                                ) : (
+                                                                    <>
+                                                                        <Gavel className="w-4 h-4 mr-1" />{" "}
+                                                                        +1 Warning
+                                                                    </>
+                                                                )}
+                                                            </Button>
+
+                                                            <Button
+                                                                size="sm"
+                                                                className="bg-red-600 text-white hover:bg-red-700 cursor-pointer"
+                                                                disabled={
+                                                                    resolvingId ===
+                                                                    r.complaint_id
+                                                                }
+                                                                onClick={() =>
+                                                                    handleActionWithNote(
+                                                                        "warn",
+                                                                        r.complaint_id,
+                                                                        r.target_user_id,
+                                                                        3
+                                                                    )
+                                                                }
+                                                                title="Adds 3 warnings to the user and resolves the report."
+                                                            >
+                                                                {resolvingId ===
+                                                                r.complaint_id ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                                ) : (
+                                                                    <>
+                                                                        <Gavel className="w-4 h-4 mr-1" />{" "}
+                                                                        +3 Warnings
+                                                                    </>
+                                                                )}
+                                                            </Button>
+
+                                                            <Button
+                                                                size="sm"
+                                                                className="bg-green-600 text-white hover:bg-green-700 cursor-pointer"
+                                                                disabled={
+                                                                    resolvingId ===
+                                                                    r.complaint_id
+                                                                }
+                                                                onClick={() =>
+                                                                    handleActionWithNote(
+                                                                        "resolve",
+                                                                        r.complaint_id
+                                                                    )
+                                                                }
+                                                                title="Marks the report as resolved without adding warnings."
+                                                            >
+                                                                {resolvingId ===
+                                                                r.complaint_id ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                                ) : (
+                                                                    "Mark Resolved"
+                                                                )}
+                                                            </Button>
+
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="border-gray-400 text-gray-700 hover:bg-gray-100 cursor-pointer"
+                                                                disabled={
+                                                                    resolvingId ===
+                                                                    r.complaint_id
+                                                                }
+                                                                onClick={() =>
+                                                                    handleActionWithNote(
+                                                                        "reject",
+                                                                        r.complaint_id
+                                                                    )
+                                                                }
+                                                                title="Rejects the report (no action taken, marks as rejected)."
+                                                            >
+                                                                {resolvingId ===
+                                                                r.complaint_id ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                                ) : (
+                                                                    <>
+                                                                        <ThumbsDown className="w-4 h-4 mr-1" />{" "}
+                                                                        Reject
+                                                                    </>
+                                                                )}
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </>
                     )}
                 </div>
             </div>

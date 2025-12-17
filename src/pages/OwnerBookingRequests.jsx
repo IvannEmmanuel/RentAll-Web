@@ -151,7 +151,7 @@ export default function OwnerBookingRequests({
             const { data, error } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,proof_of_deposit_url,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,proof_of_deposit_url,payment_method,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
@@ -172,7 +172,7 @@ export default function OwnerBookingRequests({
             const { data: ret, error: e2 } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,renter_return_marked_at,owner_confirmed_at,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,renter_return_marked_at,owner_confirmed_at,payment_method,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
@@ -192,7 +192,7 @@ export default function OwnerBookingRequests({
             const { data: exp, error: e3 } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,payment_method,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
@@ -212,7 +212,7 @@ export default function OwnerBookingRequests({
             const { data: ong, error: e4 } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,proof_of_deposit_url,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,proof_of_deposit_url,payment_method,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
@@ -232,7 +232,7 @@ export default function OwnerBookingRequests({
             const { data: conf, error: e4b } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,payment_method,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
@@ -252,7 +252,7 @@ export default function OwnerBookingRequests({
             const { data: canx, error: e5 } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,payment_method,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
@@ -272,7 +272,7 @@ export default function OwnerBookingRequests({
             const { data: dep, error: e6 } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,proof_of_deposit_url,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,proof_of_deposit_url,payment_method,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
@@ -292,7 +292,7 @@ export default function OwnerBookingRequests({
             const { data: onw, error: e7 } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,proof_of_deposit_url,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,proof_of_deposit_url,payment_method,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
@@ -312,7 +312,7 @@ export default function OwnerBookingRequests({
             const { data: done, error: e8 } = await supabase
                 .from("rental_transactions")
                 .select(
-                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,owner_confirmed_at,
+                    `rental_id,item_id,renter_id,start_date,end_date,total_cost,status,created_at,quantity,owner_confirmed_at,payment_method,
            items!inner(title,user_id,main_image_url),
            renter:renter_id ( first_name,last_name )`
                 )
@@ -387,9 +387,14 @@ export default function OwnerBookingRequests({
 
             if (fetchError) throw fetchError;
 
+            // Determine next status based on payment method
+            const nextStatus = bookingBefore.payment_method === "cash_on_delivery" 
+                ? "on_the_way" 
+                : "confirmed";
+
             const { error } = await supabase
                 .from("rental_transactions")
-                .update({ status: "confirmed" })
+                .update({ status: nextStatus })
                 .eq("rental_id", txId)
                 .eq("status", "pending");
 
@@ -401,53 +406,98 @@ export default function OwnerBookingRequests({
                 );
                 throw error;
             } else {
-                toast.success("Request approved");
-
-                // ✅ SEND BOTH: FCM (web-to-mobile) AND handleBookingStatusChange (web-to-web)
-
                 const ownerName =
                     user.first_name && user.last_name
                         ? `${user.first_name} ${user.last_name}`.trim()
                         : "The owner";
 
-                // 1️⃣ Send FCM notification to mobile renter
-                try {
-                    await sendFCMNotificationFromWeb(
-                        bookingBefore.renter_id,
-                        "Booking Confirmed!",
-                        `${ownerName} has confirmed your booking for "${bookingBefore.items.title}". Please submit your deposit.`,
-                        {
-                            type: "booking_confirmed",
-                            rental_id: bookingBefore.rental_id,
-                            item_id: bookingBefore.item_id,
-                        }
-                    );
-                    console.log("✅ FCM notification sent to renter");
-                } catch (notificationError) {
-                    console.error(
-                        "Failed to send FCM notification:",
-                        notificationError
-                    );
-                }
+                if (nextStatus === "confirmed") {
+                    // Standard flow: deposit required
+                    toast.success("Request approved");
 
-                // 2️⃣ Send in-app notification to web renter (handleBookingStatusChange)
-                try {
-                    await handleBookingStatusChange(
-                        "pending",
-                        "confirmed",
-                        { ...bookingBefore, status: "confirmed" },
-                        bookingBefore.items,
-                        {
-                            renter: bookingBefore.renter,
-                            owner: { full_name: ownerName },
-                        }
-                    );
-                    console.log("✅ In-app notification sent to renter");
-                } catch (notificationError) {
-                    console.error(
-                        "Failed to send in-app notification:",
-                        notificationError
-                    );
+                    // ✅ SEND BOTH: FCM (web-to-mobile) AND handleBookingStatusChange (web-to-web)
+
+                    // 1️⃣ Send FCM notification to mobile renter
+                    try {
+                        await sendFCMNotificationFromWeb(
+                            bookingBefore.renter_id,
+                            "Booking Confirmed!",
+                            `${ownerName} has confirmed your booking for "${bookingBefore.items.title}". Please submit your deposit.`,
+                            {
+                                type: "booking_confirmed",
+                                rental_id: bookingBefore.rental_id,
+                                item_id: bookingBefore.item_id,
+                            }
+                        );
+                        console.log("✅ FCM notification sent to renter");
+                    } catch (notificationError) {
+                        console.error(
+                            "Failed to send FCM notification:",
+                            notificationError
+                        );
+                    }
+
+                    // 2️⃣ Send in-app notification to web renter (handleBookingStatusChange)
+                    try {
+                        await handleBookingStatusChange(
+                            "pending",
+                            "confirmed",
+                            { ...bookingBefore, status: "confirmed" },
+                            bookingBefore.items,
+                            {
+                                renter: bookingBefore.renter,
+                                owner: { full_name: ownerName },
+                            }
+                        );
+                        console.log("✅ In-app notification sent to renter");
+                    } catch (notificationError) {
+                        console.error(
+                            "Failed to send in-app notification:",
+                            notificationError
+                        );
+                    }
+                } else {
+                    // Cash on delivery flow: skip deposit, go directly to ready
+                    toast.success("Request approved (Cash on Delivery)");
+
+                    // Send FCM and in-app notifications
+                    try {
+                        await sendFCMNotificationFromWeb(
+                            bookingBefore.renter_id,
+                            "Booking Confirmed!",
+                            `${ownerName} has confirmed your booking for "${bookingBefore.items.title}". It's ready for pickup!`,
+                            {
+                                type: "booking_confirmed",
+                                rental_id: bookingBefore.rental_id,
+                                item_id: bookingBefore.item_id,
+                            }
+                        );
+                        console.log("✅ FCM notification sent to renter (COD)");
+                    } catch (notificationError) {
+                        console.error(
+                            "Failed to send FCM notification:",
+                            notificationError
+                        );
+                    }
+
+                    try {
+                        await handleBookingStatusChange(
+                            "pending",
+                            "on_the_way",
+                            { ...bookingBefore, status: "on_the_way" },
+                            bookingBefore.items,
+                            {
+                                renter: bookingBefore.renter,
+                                owner: { full_name: ownerName },
+                            }
+                        );
+                        console.log("✅ In-app notification sent to renter (COD)");
+                    } catch (notificationError) {
+                        console.error(
+                            "Failed to send in-app notification:",
+                            notificationError
+                        );
+                    }
                 }
             }
         } catch (e) {
@@ -1443,6 +1493,18 @@ function RequestDetailsDialog({ row, awaiting = false }) {
                                 Status
                             </span>
                             <StatusBadge status={row.status} />
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-[#1E1E1E]/60 font-medium">
+                                Payment Method
+                            </span>
+                            <span className="text-[#1E1E1E] font-semibold">
+                                {row.payment_method === "cash_on_delivery"
+                                    ? "Cash On Delivery"
+                                    : row.payment_method === "meet_up"
+                                    ? "Meet-up"
+                                    : row.payment_method || "—"}
+                            </span>
                         </div>
                         <div className="flex justify-between items-center pt-2 border-t border-[#1E1E1E]/10">
                             <span className="text-[#1E1E1E] font-bold">

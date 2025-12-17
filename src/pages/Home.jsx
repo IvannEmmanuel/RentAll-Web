@@ -177,66 +177,66 @@ function Home() {
                                 "ongoing",
                                 "awaiting_owner_confirmation",
                             ];
-                            const departedStatuses = [
-                                "on_the_way",
-                                "ongoing",
-                                "awaiting_owner_confirmation",
-                            ];
 
-                            const [
-                                { data: consumeRows, error: cErr },
-                                { data: departedRows, error: dErr },
-                            ] = await Promise.all([
-                                supabase
-                                    .from("rental_transactions")
-                                    .select(
-                                        "quantity, start_date, end_date, status"
-                                    )
-                                    .eq("item_id", it.item_id)
-                                    .in("status", consumingStatuses),
-                                supabase
-                                    .from("rental_transactions")
-                                    .select(
-                                        "quantity, start_date, end_date, status"
-                                    )
-                                    .eq("item_id", it.item_id)
-                                    .in("status", departedStatuses)
-                                    .lte("start_date", todayStr)
-                                    .gte("end_date", todayStr),
-                            ]);
+                            const { data: rentals, error } = await supabase
+                                .from("rental_transactions")
+                                .select("quantity, start_date, end_date, status")
+                                .eq("item_id", it.item_id)
+                                .in("status", consumingStatuses);
 
-                            if (cErr) throw cErr;
-                            if (dErr) throw dErr;
+                            if (error) throw error;
 
-                            const sum = (rows) =>
-                                (rows || []).reduce(
-                                    (acc, r) => acc + (Number(r.quantity) || 0),
-                                    0
-                                );
-                            const consumeSum = sum(consumeRows);
-                            const departedSum = sum(departedRows);
+                            const totalRented = (rentals || []).reduce(
+                                (sum, r) => sum + (Number(r.quantity) || 0),
+                                0
+                            );
 
-                            const baseCapacity =
-                                (Number(it.quantity) || 0) + departedSum;
                             const remaining = Math.max(
                                 0,
-                                baseCapacity - consumeSum
+                                (Number(it.quantity) || 0) - totalRented
                             );
 
-                            return remaining;
+                            let nextAvailableDate = null;
+
+                            if (remaining === 0 && rentals?.length) {
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+
+                                const allEndDates = rentals
+                                    .map((r) => new Date(r.end_date))
+                                    .sort((a, b) => a - b);
+
+                                const futureReturns = allEndDates.filter((d) => d >= today);
+
+                                // Only set a date if there is actually a future return.
+                                // If futureReturns is empty, it means the item is overdue/held up.
+                                // We leave nextAvailableDate as null so we can filter the item out later.
+                                if (futureReturns.length > 0) {
+                                    const dateToShow = futureReturns[0];
+                                    nextAvailableDate = dateToShow.toLocaleDateString("en-US", {
+                                        year: "numeric",
+                                        month: "long",
+                                        day: "numeric",
+                                    });
+                                }
+                            }
+
+                            return { remaining, nextAvailableDate };
                         } catch (e) {
-                            console.warn(
-                                "availability calc failed for item",
-                                it.item_id,
-                                e?.message || e
-                            );
-                            return Number(it.quantity) || 0;
+                            console.warn("availability calc failed", e);
+                            return {
+                                remaining: Number(it.quantity) || 0,
+                                nextAvailableDate: null,
+                            };
                         }
                     })();
-                    const [imageUrl, remainingUnits] = await Promise.all([
+
+                    const [imageUrl, availability] = await Promise.all([
                         imagePromise,
                         availabilityPromise,
                     ]);
+
+
 
                     return {
                         ownerId: it.user_id,
@@ -245,14 +245,22 @@ function Home() {
                         location: it.location || "",
                         date: new Date(it.created_at).toLocaleDateString(),
                         price: String(it.price_per_day),
-                        quantity: remainingUnits,
-                        imageUrl: imageUrl,
+                        quantity: availability.remaining,
+                        nextAvailableDate: availability.nextAvailableDate,
+                        imageUrl,
                         raw: it,
                     };
                 })
             );
 
             const filtered = withImages.filter((item) => {
+                // If quantity is 0 and there is NO future date calculated, it means it's overdue or unavailable.
+                // Hide it from the list.
+                if (item.quantity === 0 && !item.nextAvailableDate) {
+                    return false;
+                }
+
+                // Existing search term logic
                 if (!searchTerm) return true;
                 const needle = searchTerm.toLowerCase();
                 return (
@@ -734,6 +742,7 @@ function Home() {
                                     date={item.date}
                                     price={item.price}
                                     quantity={item.quantity}
+                                    nextAvailableDate={item.nextAvailableDate}
                                     imageUrl={item.imageUrl}
                                     isOwner={user?.id === item.ownerId}
                                     isFavorited={isFavorited(item.raw?.item_id)}
