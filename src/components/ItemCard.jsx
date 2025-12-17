@@ -94,7 +94,7 @@ function ItemCard({
                                 {Number(quantity) || 0} unit
                                 {(Number(quantity) || 0) !== 1 ? "s" : ""} available
                                 {Number(quantity) === 0 && nextAvailableDate && (
-                                    <> (Back in {nextAvailableDate})</>
+                                    <> (Possibly available on {nextAvailableDate})</>
                                 )}
                             </p>
                         )}
